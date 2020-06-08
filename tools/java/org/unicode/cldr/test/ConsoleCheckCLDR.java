@@ -820,6 +820,9 @@ public class ConsoleCheckCLDR {
             System.out.println("# FATAL ERRORS:");
         }
         long errorCount = totalCount.getCount(ErrorType.error) + fatalErrors.size();
+
+        InstrumentCache.SINGLETON.printCaches("ConsoleCheckCLDR");
+
         if (errorCount != 0) {
             //            System.exit((int) errorCount); // cast is safe; we'll never have that many errors
             System.out.println();
@@ -835,6 +838,7 @@ public class ConsoleCheckCLDR {
             }
         }
         checkCldr.handleFinish();
+
     }
 
     static class LocaleVotingData {

@@ -21,6 +21,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.unicode.cldr.test.InstrumentCache;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.ibm.icu.impl.Utility;
@@ -1268,7 +1270,17 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
         if (result == null) {
             result = new XPathParts().addInternal(path, true).freeze();
             cache.put(path, result);
+
+            if (InstrumentCache.INSTRUMENT_CACHE) {
+                InstrumentCache.SINGLETON.add(InstrumentCache.CacheId.XPathParts, path);
+            }
+
         }
+
+        if (InstrumentCache.INSTRUMENT_CACHE) {
+            InstrumentCache.SINGLETON.access(InstrumentCache.CacheId.XPathParts, path);
+        }
+
         return result;
     }
 
