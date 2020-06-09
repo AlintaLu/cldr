@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 
+import org.unicode.cldr.test.InstrumentCache;
 import org.unicode.cldr.util.CLDRFile.DraftStatus;
 import org.unicode.cldr.util.XMLSource.ResolvingSource;
 
@@ -514,11 +515,18 @@ public class SimpleFactory extends Factory {
             //        result = cache.get(localeName);
             //  result=combinedCache.asMap().get(cacheKey);
             result = combinedCache.getIfPresent(cacheKey);
+
+            // AsMap: Returns a view of the entries stored in this cache as a thread-safe map.
+            // Modifications made to the map directly affect the cache.
             mapToSynchronizeOn = combinedCache.asMap();
+
         }
         if (result != null) {
             if (DEBUG_SIMPLEFACTORY) {
                 System.out.println("HandleMake:Returning cached result for locale " + localeName);
+            }
+            if (InstrumentCache.INSTRUMENT_CACHE) {
+                InstrumentCache.SINGLETON.access(InstrumentCache.CacheId.SimpleFactory, cacheKey.toString());
             }
             return result;
         }
@@ -535,6 +543,9 @@ public class SimpleFactory extends Factory {
             if (result != null) {
                 if (DEBUG_SIMPLEFACTORY) {
                     System.out.println("HandleMake:Returning cached result for locale " + localeName);
+                }
+                if (InstrumentCache.INSTRUMENT_CACHE) {
+                    InstrumentCache.SINGLETON.access(InstrumentCache.CacheId.SimpleFactory, cacheKey.toString());
                 }
                 return result;
             }
@@ -564,6 +575,10 @@ public class SimpleFactory extends Factory {
             }
             if (result != null) {
                 mapToSynchronizeOn.put(cacheKey, result);
+                if (InstrumentCache.INSTRUMENT_CACHE) {
+                    InstrumentCache.SINGLETON.add(InstrumentCache.CacheId.SimpleFactory, cacheKey.toString());
+                    InstrumentCache.SINGLETON.access(InstrumentCache.CacheId.SimpleFactory, cacheKey.toString());
+                }
                 //                combinedCache.put(cacheKey, result);
                 //                cache.put(localeName, result);
             }

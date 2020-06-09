@@ -16,7 +16,8 @@ public class InstrumentCache {
     Map<CacheId, Map<String, Count>> cacheIdToKeyToCount = new ConcurrentHashMap<>();
 
     public enum CacheId {
-        XPathParts
+        XPathParts,
+        SimpleFactory
     }
 
     public InstrumentCache () {
@@ -30,14 +31,21 @@ public class InstrumentCache {
         private int createCount;
         private int accessCount;
         private long lastAccessTime;
+        Object CREAT_SYNC = new Object();
+        Object ACCESS_SYNC = new Object();
 
         public void increaseCreateCount() {
-            createCount++;
+            synchronized(CREAT_SYNC) {
+                createCount++;
+            }
         }
 
         public void increaseAccessCount() {
-            accessCount++;
-            lastAccessTime = System.currentTimeMillis();
+            synchronized(ACCESS_SYNC) {
+                accessCount++;
+                lastAccessTime = System.currentTimeMillis();
+            }
+
         }
 
         public int getCreateCount() {
@@ -71,8 +79,15 @@ public class InstrumentCache {
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("CacheId,key,createCount,accessCount,lastAccessTime\n");
+        sb.append("CacheId\tkey\tcreateCount\taccessCount\tlastAccessTime\n");
+
         for (CacheId cacheId: CacheId.values()) {
+
+            // only print combinedCache in SimpleFactory
+            if (!cacheId.equals(CacheId.SimpleFactory)) {
+                continue;
+            }
+
             int totalCnt = 0;
 
             for (String key: cacheIdToKeyToCount.get(cacheId).keySet()) {
@@ -81,22 +96,22 @@ public class InstrumentCache {
                int accessCount = cacheIdToKeyToCount.get(cacheId).get(key).getAccessCount();
                long lastAccessTime = cacheIdToKeyToCount.get(cacheId).get(key).getLastAccessTime();
 
-               // For each cache, only print the items where the createCount > 1 or accessCount > 1
-               if (createCount > 1 || accessCount > 1) {
-                   sb.append(cacheId + "," + key.replaceAll(",", ".") + "," + createCount + "," + accessCount + "," + lastAccessTime + "\n");
+               // For each cache, only print the items where the createCount > 1
+               if (createCount > 1) {
+                   sb.append(cacheId + "\t" + key + "\t" + createCount + "\t" + accessCount + "\t" + lastAccessTime + "\n");
                }
 
                totalCnt++;
             }
             // print total number of items in that cache
-            sb.append(cacheId + "," + totalCnt + "\n");
+            sb.append(cacheId + "\t" + totalCnt + "\n");
         }
 
         // output to file
         try {
             String savePath = "***";
             Files.write(Paths.get(savePath + "instrument-cache-"
-                        + methodName + "-" + java.time.LocalDateTime.now() + ".csv"),
+                        + methodName + "-" + java.time.LocalDateTime.now() + ".tsv"),
                         sb.toString().getBytes());
         } catch (IOException e) {
             e.printStackTrace();
