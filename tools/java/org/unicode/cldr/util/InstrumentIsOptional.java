@@ -17,8 +17,8 @@ public class InstrumentIsOptional {
         PATH_COUNT(2, "path with/without count"),
         GET_PLURALRULE(3, "getPluralRule"),
         CLONE_AS_THAWED(4, "cloneAsThawed"),
-        CHECK_SUPPRESSED(4, "checkIfSuppressed"),
-        TOTAL_SPENDING(5, "TotalTimeSpendingInMethod");
+        CHECK_SUPPRESSED(5, "checkIfSuppressed"),
+        TOTAL_SPENDING(6, "TotalTimeSpendingInMethod");
 
         public static int length = PartInIsOptional.values().length;
 
