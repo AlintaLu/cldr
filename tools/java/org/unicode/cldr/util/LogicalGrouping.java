@@ -11,6 +11,7 @@ import org.unicode.cldr.util.DayPeriodInfo.DayPeriod;
 import org.unicode.cldr.util.GrammarInfo.GrammaticalFeature;
 import org.unicode.cldr.util.GrammarInfo.GrammaticalScope;
 import org.unicode.cldr.util.GrammarInfo.GrammaticalTarget;
+import org.unicode.cldr.util.InstrumentIsOptional.PartInIsOptional;
 import org.unicode.cldr.util.PluralRulesUtil.KeywordStatus;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo.Count;
@@ -171,24 +172,79 @@ public class LogicalGrouping {
      *         that it belongs to.
      */
     public static boolean isOptional(CLDRFile cldrFile, String path) {
-        XPathParts parts = XPathParts.getInstance(path);
+        long t0 = System.currentTimeMillis();
+        XPathParts parts = XPathParts.getFrozenInstance(path);
+        long t1 = System.currentTimeMillis();
 
+        if(InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+            InstrumentIsOptional.recordPart(PartInIsOptional.XPATHPARTS_GET_FPOZENINSTANCE, t1 - t0);
+        }
+
+        long t2 = System.currentTimeMillis();
         if (parts.containsElement("relative")) {
             String fieldType = parts.findAttributeValue("field", "type");
             String relativeType = parts.findAttributeValue("relative", "type");
             Integer relativeValue = relativeType == null ? 999 : Integer.valueOf(relativeType);
             if (fieldType != null && fieldType.startsWith("day") && Math.abs(relativeValue.intValue()) >= 2) {
+                if(InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+                    long tEnd = System.currentTimeMillis();
+                    InstrumentIsOptional.recordPart(PartInIsOptional.TOTAL_SPENDING, tEnd - t0);
+                }
                 return true; // relative days +2 +3 -2 -3 are optional in a logical group.
             }
         }
+
+        long t3 = System.currentTimeMillis();
+        if(InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+            InstrumentIsOptional.recordPart(PartInIsOptional.RELATIVE, t3 - t2);
+        }
+
+        long t4 = System.currentTimeMillis();
         // Paths with count="(zero|one)" are optional if their usage is covered
         // fully by paths with count="(0|1)", which are always optional themselves.
-        if (!path.contains("[@count=")) return false;
+        if (!path.contains("[@count=")) {
+            if(InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+                long tEnd = System.currentTimeMillis();
+                InstrumentIsOptional.recordPart(PartInIsOptional.TOTAL_SPENDING, tEnd - t0);
+            }
+            return false;
+        }
         String pluralType = parts.getAttributeValue(-1, "count");
-        if (pluralType.equals("0") || pluralType.equals("1")) return true;
-        if (!pluralType.equals("zero") && !pluralType.equals("one")) return false;
+        if (pluralType.equals("0") || pluralType.equals("1")) {
+            if(InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+                long tEnd = System.currentTimeMillis();
+                InstrumentIsOptional.recordPart(PartInIsOptional.TOTAL_SPENDING, tEnd - t0);
+            }
+            return true;
+        }
+        if (!pluralType.equals("zero") && !pluralType.equals("one")) {
+            if(InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+                long tEnd = System.currentTimeMillis();
+                InstrumentIsOptional.recordPart(PartInIsOptional.TOTAL_SPENDING, tEnd - t0);
+            }
+            return false;
+        }
 
+        long t5 = System.currentTimeMillis();
+        if (InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+            InstrumentIsOptional.recordPart(PartInIsOptional.PATH_COUNT, t5 - t4);
+        }
+
+        long t6 = System.currentTimeMillis();
         PluralRules pluralRules = getPluralInfo(cldrFile).getPluralRules();
+        long t7 = System.currentTimeMillis();
+        if (InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+            InstrumentIsOptional.recordPart(PartInIsOptional.GET_PLURALRULE, t7 - t6);
+        }
+
+        long t8 = System.currentTimeMillis();
+        parts.cloneAsThawed();
+        long t9 = System.currentTimeMillis();
+        if (InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+            InstrumentIsOptional.recordPart(PartInIsOptional.CLONE_AS_THAWED, t9 - t8);
+        }
+
+        long t10 = System.currentTimeMillis();
         parts.setAttribute(-1, "count", "0");
         Set<Double> explicits = new HashSet<>();
         if (cldrFile.isHere(parts.toString())) {
@@ -204,9 +260,20 @@ public class LogicalGrouping {
             KeywordStatus status = org.unicode.cldr.util.PluralRulesUtil.getKeywordStatus(
                 pluralRules, pluralType, 0, explicits, true);
             if (status == KeywordStatus.SUPPRESSED) {
+                if (InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+                    long tEnd = System.currentTimeMillis();
+                    InstrumentIsOptional.recordPart(PartInIsOptional.TOTAL_SPENDING, tEnd - t0);
+                }
                 return true;
             }
         }
+
+        long tEnd = System.currentTimeMillis();
+        if (InstrumentIsOptional.INSTRUMENT_ISOPTIONAL) {
+            InstrumentIsOptional.recordPart(PartInIsOptional.CHECK_SUPPRESSED, tEnd - t10);
+            InstrumentIsOptional.recordPart(PartInIsOptional.TOTAL_SPENDING, tEnd - t0);
+        }
+
         return false;
     }
 

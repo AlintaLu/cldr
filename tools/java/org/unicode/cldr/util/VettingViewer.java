@@ -530,7 +530,7 @@ public class VettingViewer<T> {
             usersLevel, quick);
 
         // now write the results out
-
+        InstrumentIsOptional.outPutInstrumentResult();
         return sorted;
     }
 
