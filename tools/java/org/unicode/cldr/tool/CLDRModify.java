@@ -1203,12 +1203,13 @@ public class CLDRModify {
                 if (!xpath.contains("/language")) {
                     return;
                 }
-                XPathParts parts = XPathParts.getInstance(xpath); // not frozen, for setAttribute
+                XPathParts parts = XPathParts.getFrozenInstance(xpath);
                 String languageCode = parts.findAttributeValue("language", "type");
                 String v = resolved.getStringValue(xpath);
                 if (!languageCode.equals("swc")) {
                     return;
                 }
+                parts = parts.cloneAsThawed();
                 parts.setAttribute("language", "type", "sw_CD");
                 replace(xpath, parts.toString(), v);
             }

@@ -511,7 +511,7 @@ public class XPathTable {
      * This is NOT the same as the two-parameter xpathToBaseXpath elsewhere in this file
      */
     public static String xpathToBaseXpath(String xpath) {
-        XPathParts xpp = XPathParts.getInstance(xpath); // not frozen, for removeAttribute
+        XPathParts xpp = XPathParts.getFrozenInstance(xpath);
         Map<String, String> lastAtts = xpp.getAttributes(-1);
         String oldAlt = lastAtts.get(LDMLConstants.ALT);
         if (oldAlt == null) {
@@ -520,10 +520,12 @@ public class XPathTable {
 
         String newAlt = LDMLUtilities.parseAlt(oldAlt)[0]; // #0 : altType
         if (newAlt == null) {
+            xpp = xpp.cloneAsThawed();
             xpp.removeAttribute(-1, LDMLConstants.ALT); // alt dropped out existence
         } else if (newAlt.equals(oldAlt)) {
             return xpath; // No change
         } else {
+            xpp = xpp.cloneAsThawed();
             xpp.putAttributeValue(-1, LDMLConstants.ALT, newAlt);
         }
         String newXpath = xpp.toString();
