@@ -1,8 +1,10 @@
 package org.unicode.cldr.util;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,6 +74,8 @@ public class LogicalGrouping {
      * This might change if XPathParts.getInstance and/or XPathParts.set are made faster.
      */
     private static final boolean GET_TYPE_FROM_PARTS = false;
+
+    public static boolean NEW_METHOD = true;
 
     /**
      * Return a sorted set of paths that are in the same logical set as the given path
@@ -216,7 +220,7 @@ public class LogicalGrouping {
     /**
      * Path types for logical groupings
      */
-    private enum PathType {
+    public enum PathType {
         SINGLETON { // no logical groups for singleton paths
             @Override
             @SuppressWarnings("unused")
@@ -431,7 +435,10 @@ public class LogicalGrouping {
          * Note: it would be more elegant and cleaner, but slower, if we used XPathParts to
          * determine the PathType. We avoid that since XPathParts.set is a performance hot spot.
          */
-        private static PathType getPathTypeFromPath(String path) {
+        public static PathType getPathTypeFromPath(String path) {
+            if (NEW_METHOD) {   // use Trie
+                return SearchPathTypeTrie.SINGLETON.getPathType(path);
+            }
             /*
              * Would changing the order of these tests ever change the return value?
              * Assume it could if in doubt.
@@ -479,6 +486,22 @@ public class LogicalGrouping {
          * @return the PathType
          */
         private static PathType getPathTypeFromParts(XPathParts parts) {
+            if (NEW_METHOD) {
+                Map<String, PathType> elementToPathType = new HashMap<>();
+                elementToPathType.put("metazone", PathType.METAZONE);
+                elementToPathType.put("days", PathType.DAYS);
+                elementToPathType.put("daysPeriod", PathType.DAY_PERIODS);
+                elementToPathType.put("quarters", PathType.QUARTERS);
+                elementToPathType.put("months", PathType.MONTHS);
+                elementToPathType.put("relative", PathType.RELATIVE);
+                elementToPathType.put("decimalFormatLength", PathType.DECIMAL_FORMAT_LENGTH);
+                String element = parts.containsElement(elementToPathType.keySet());
+                if (element == null && parts.containsAttribute("count")) {
+                    return PathType.COUNT;
+                }
+                return elementToPathType.getOrDefault(element, PathType.SINGLETON);
+            }
+
             /*
              * Would changing the order of these tests ever change the return value?
              * Assume it could if in doubt.
@@ -510,4 +533,5 @@ public class LogicalGrouping {
             return PathType.SINGLETON;
         }
     }
+
 }

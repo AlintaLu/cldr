@@ -70,6 +70,20 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     }
 
     /**
+     * See if the xpath contains any element from given set
+     * If contains, return element
+     */
+    public String containsElement(Set<String> elementSet) {
+        for (int i = 0; i < elements.size(); ++i) {
+            String element = elements.get(i).getElement();
+            if (elementSet.contains(element)) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Empty the xpath
      *
      * Called by JsonConverter.rewrite() and CLDRFile.write()
