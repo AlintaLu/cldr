@@ -73,6 +73,8 @@ public class LogicalGrouping {
      */
     private static final boolean GET_TYPE_FROM_PARTS = false;
 
+    public static boolean SHALLOW = true;
+
     /**
      * Return a sorted set of paths that are in the same logical set as the given path
      *
@@ -127,11 +129,11 @@ public class LogicalGrouping {
             return set;
         }
 
+
         if (!GET_TYPE_FROM_PARTS) {
-            parts = XPathParts.getFrozenInstance(path).cloneAsThawed();
-        } else {
-            parts = parts.cloneAsThawed();
+            parts = XPathParts.getFrozenInstance(path);
         }
+        parts = SHALLOW? parts.shallowCloneAsThawed(): parts.cloneAsThawed();
 
         if (PathType.isLocaleDependent(pathType)) {
             String locale = cldrFile.getLocaleID();
@@ -141,6 +143,7 @@ public class LogicalGrouping {
             }
             Set<String> set = new TreeSet<>();
             pathType.addPaths(set, cldrFile, path, parts);
+
             cacheLocaleAndPathToLogicalGroup.put(key, set);
             return set;
         } else {
@@ -152,9 +155,18 @@ public class LogicalGrouping {
             }
             Set<String> set = new TreeSet<>();
             pathType.addPaths(set, cldrFile, path, parts);
+
             cachePathToLogicalGroup.putAll(path, set);
             return set;
         }
+    }
+
+    /**
+     * for testing only
+     */
+    public static void flushCache() {
+        cachePathToLogicalGroup = ArrayListMultimap.create();
+        cacheLocaleAndPathToLogicalGroup = new ConcurrentHashMap<>();
     }
 
 
@@ -243,8 +255,9 @@ public class LogicalGrouping {
                 String dayName = parts.size() > 7 ? parts.getAttributeValue(7, "type") : null;
                 // This is just a quick check to make sure the path is good.
                 if (dayName != null && days.contains(dayName)) {
+                    int dayIndex = parts.findElement("day");
                     for (String str : days) {
-                        parts.setAttribute("day", "type", str);
+                        parts.setAttribute(dayIndex, "type", str);
                         set.add(parts.toString());
                     }
                 }
@@ -258,8 +271,9 @@ public class LogicalGrouping {
                 } else {
                     String dayPeriodType = parts.findAttributeValue("dayPeriod", "type");
                     if (ampm.contains(dayPeriodType)) {
+                        int dayPeriodIndex = parts.findElement("dayPeriod");
                         for (String s : ampm) {
-                            parts.setAttribute("dayPeriod", "type", s);
+                            parts.setAttribute(dayPeriodIndex, "type", s);
                             set.add(parts.toString());
                         }
                     } else {
@@ -268,8 +282,9 @@ public class LogicalGrouping {
                         List<DayPeriod> dayPeriods = dpi.getPeriods();
                         DayPeriod thisDayPeriod = DayPeriod.fromString(dayPeriodType);
                         if (dayPeriods.contains(thisDayPeriod)) {
+                            int dayPeriodIndex = parts.findElement("dayPeriod");
                             for (DayPeriod d : dayPeriods) {
-                                parts.setAttribute("dayPeriod", "type", d.name());
+                                parts.setAttribute(dayPeriodIndex, "type", d.name());
                                 set.add(parts.toString());
                             }
                         }
@@ -284,8 +299,9 @@ public class LogicalGrouping {
                 String quarterName = parts.size() > 7 ? parts.getAttributeValue(7, "type") : null;
                 Integer quarter = quarterName == null ? 0 : Integer.valueOf(quarterName);
                 if (quarter > 0 && quarter <= 4) { // This is just a quick check to make sure the path is good.
+                    int quarterIndex = parts.findElement("quarter");
                     for (Integer i = 1; i <= 4; i++) {
-                        parts.setAttribute("quarter", "type", i.toString());
+                        parts.setAttribute(quarterIndex, "type", i.toString());
                         set.add(parts.toString());
                     }
                 }
@@ -299,17 +315,18 @@ public class LogicalGrouping {
                 String monthName = parts.size() > 7 ? parts.getAttributeValue(7, "type") : null;
                 Integer month = monthName == null ? 0 : Integer.valueOf(monthName);
                 int calendarMonthMax = calendarsWith13Months.contains(calType) ? 13 : 12;
+                int monthIndex = parts.findElement("month");
                 if (month > 0 && month <= calendarMonthMax) { // This is just a quick check to make sure the path is good.
                     for (Integer i = 1; i <= calendarMonthMax; i++) {
-                        parts.setAttribute("month", "type", i.toString());
+                        parts.setAttribute(monthIndex, "type", i.toString());
                         if ("hebrew".equals(calType)) {
-                            parts.removeAttribute("month", "yeartype");
+                            parts.removeAttribute(monthIndex, "yeartype");
                         }
                         set.add(parts.toString());
                     }
                     if ("hebrew".equals(calType)) { // Add extra hebrew calendar leap month
-                        parts.setAttribute("month", "type", Integer.toString(7));
-                        parts.setAttribute("month", "yeartype", "leap");
+                        parts.setAttribute(monthIndex, "type", Integer.toString(7));
+                        parts.setAttribute(monthIndex, "yeartype", "leap");
                         set.add(parts.toString());
                     }
                 }
@@ -328,8 +345,9 @@ public class LogicalGrouping {
                         if (fieldType != null && fieldType.startsWith("day")) {
                             limit = 3;
                         }
+                        int relativeIndex = parts.findElement("relative");
                         for (Integer i = -1 * limit; i <= limit; i++) {
-                            parts.setAttribute("relative", "type", i.toString());
+                            parts.setAttribute(relativeIndex, "type", i.toString());
                             set.add(parts.toString());
                         }
                     }
@@ -366,9 +384,8 @@ public class LogicalGrouping {
             void addPaths(Set<String> set, CLDRFile cldrFile, String path, XPathParts parts) {
                 PluralInfo pluralInfo = getPluralInfo(cldrFile);
                 Set<Count> pluralTypes = pluralInfo.getCounts();
-                String lastElement = parts.getElement(-1);
                 for (Count count : pluralTypes) {
-                    parts.setAttribute(lastElement, "count", count.toString());
+                    parts.setAttribute(-1, "count", count.toString());
                     set.add(parts.toString());
                 }
             }
