@@ -129,7 +129,6 @@ public class LogicalGrouping {
             return set;
         }
 
-
         if (!GET_TYPE_FROM_PARTS) {
             parts = XPathParts.getFrozenInstance(path);
         }
@@ -143,7 +142,6 @@ public class LogicalGrouping {
             }
             Set<String> set = new TreeSet<>();
             pathType.addPaths(set, cldrFile, path, parts);
-
             cacheLocaleAndPathToLogicalGroup.put(key, set);
             return set;
         } else {

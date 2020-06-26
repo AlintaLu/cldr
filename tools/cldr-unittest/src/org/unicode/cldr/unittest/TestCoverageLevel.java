@@ -88,7 +88,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
         SupplementalDataInfo sdi = SupplementalDataInfo
             .getInstance(CLDRPaths.DEFAULT_SUPPLEMENTAL_DIRECTORY);
 
-        Set<String> allPaths = new HashSet<>();
+        Set<String> allPaths = new HashSet<String>();
         M4<String, String, Level, Boolean> starredToLocalesToLevels = ChainedMap
             .of(new TreeMap<String, Object>(),
                 new TreeMap<String, Object>(),
@@ -106,7 +106,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
         }
 
         Set<Level> levelsFound = EnumSet.noneOf(Level.class);
-        Set<String> localesWithUniqueLevels = new TreeSet<>();
+        Set<String> localesWithUniqueLevels = new TreeSet<String>();
         for (Entry<String, Map<String, Map<Level, Boolean>>> entry : starredToLocalesToLevels) {
             String starred = entry.getKey();
             Map<String, Map<Level, Boolean>> localesToLevels = entry.getValue();
@@ -153,12 +153,12 @@ public class TestCoverageLevel extends TestFmwkPlus {
 
     static Relation<String, LanguageStatus> languageStatus = Relation.of(
         new HashMap<String, Set<LanguageStatus>>(), TreeSet.class);
-    static Counter2<String> languageLiteratePopulation = new Counter2<>();
-    static Map<String, Date> currencyToLast = new HashMap<>();
-    static Set<String> officialSomewhere = new HashSet<>();
-
+    static Counter2<String> languageLiteratePopulation = new Counter2<String>();
+    static Map<String, Date> currencyToLast = new HashMap<String, Date>();
+    static Set<String> officialSomewhere = new HashSet<String>();
+    
     static {
-        Counter2<String> territoryLiteratePopulation = new Counter2<>();
+        Counter2<String> territoryLiteratePopulation = new Counter2<String>();
         LanguageTagParser parser = new LanguageTagParser();
         // cf
         // http://cldr.unicode.org/development/development-process/design-proposals/languages-to-show-for-translation

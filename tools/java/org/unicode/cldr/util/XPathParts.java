@@ -759,7 +759,6 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     public static final String NEWLINE = "\n";
 
     private final class Element implements Cloneable, Freezable<Element> {
-        // private volatile boolean frozen;
         private final String element;
         private Map<String, String> attributes; // = new TreeMap(AttributeComparator);
 
@@ -772,7 +771,6 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
         }
 
         public Element(String element, Map<String, String> attributes) {
-            // this.frozen = false;
             this.element = element.intern();  // allow fast comparison
             if (attributes == null) {
                 this.attributes = null;
@@ -784,9 +782,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
 
         @Override
         protected Object clone() throws CloneNotSupportedException {
-//            return frozen ? this
-//                : new Element(element, attributes);
-            return new Element(element, attributes); // only call in XPathParts.set(XPathParts) whose return is a modifiable XPathParts
+            return new Element(element, attributes); // only call in XPathParts.set(XPathParts) which returns a modifiable XPathParts
         }
 
         /**
@@ -812,7 +808,6 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
                 attributes.put(attribute, value);
             }
         }
-
 
         /**
          * Remove the given attributes from this Element object.
@@ -976,10 +971,8 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
         private Map<String, String> getAttributes() {
             if (attributes == null) {
                 return ImmutableMap.of();
-//                return Collections.emptyMap();
             }
             return ImmutableMap.copyOf(attributes);
-//            return Collections.unmodifiableMap(attributes);
         }
 
         private String getAttributeValue(String attribute) {
@@ -1057,7 +1050,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      */
     public XPathParts addRelative(String path) {
         if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen XPathParts");
+            throw new UnsupportedOperationException("Can't modify frozen Element");
         }
         if (path.startsWith("//")) {
             elements.clear();
@@ -1076,7 +1069,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      */
     public XPathParts trimLast() {
         if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen XPathParts");
+            throw new UnsupportedOperationException("Can't modify frozen Element");
         }
         elements.remove(elements.size() - 1);
         return this;
@@ -1092,7 +1085,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      */
     public XPathParts set(XPathParts parts) {
         if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen XPathParts");
+            throw new UnsupportedOperationException("Can't modify frozen Element");
         }
         try {
             dtdData = parts.dtdData;
@@ -1114,7 +1107,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      */
     public XPathParts replace(int i, XPathParts parts) {
         if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen XPathParts");
+            throw new UnsupportedOperationException("Can't modify frozen Element");
         }
         List<Element> temp = elements;
         elements = new ArrayList<>();
@@ -1222,25 +1215,6 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
         return this;
     }
 
-    /**
-     * Use in LogicalGrouping.PathType.addPath
-     * @param elementName
-     * @param attributeName
-     * @param days
-     * @param addSet
-     */
-    public void setAttributes(String elementName, String attributeName, Set<String> attributeValues, Set<String> addSet) {
-        if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen XPathParts");
-        }
-        int index = findElement(elementName);
-        makeElementsModifiable(index);
-        for(String attributeValue: attributeValues) {
-            elements.get(index).putAttribute(attributeName, attributeValue);
-            addSet.add(this.toString());
-        }
-    }
-
     public XPathParts removeProposed() {
         if (frozen) {
             throw new UnsupportedOperationException("Can't modify frozen XPathParts");
@@ -1308,7 +1282,6 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
             throw new UnsupportedOperationException("Can't modify frozen XPathParts");
         }
         int index = elementIndex >= 0 ? elementIndex : elementIndex + size();
-
         makeElementsModifiable(index);
         elements.get(index).putAttribute(attributeName, attributeValue);
         return this;
