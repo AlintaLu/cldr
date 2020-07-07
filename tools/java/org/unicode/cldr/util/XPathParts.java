@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -445,7 +446,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
         if (value == null && (ea == null || !ea.containsKey(attribute))) {
             return;
         }
-        if (value != null && ea != null && ea.containsKey(attribute) && ea.get(attribute).equals(value)) {
+        if (value != null && ea != null && value.equals(ea.get(attribute))) {
             return;
         }
         makeElementsMutable();
@@ -563,7 +564,8 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
 
     public XPathParts removeAttributes(int elementIndex, Collection<String> attributeNames) {
         elementIndex = elementIndex >= 0 ? elementIndex : elementIndex + size();
-        if (elements.get(elementIndex).attributes == null || attributeNames == null) {
+        Map<String, String> ea = elements.get(elementIndex).attributes;
+        if (ea == null || attributeNames == null || attributeNames.isEmpty() || Collections.disjoint(attributeNames, ea.keySet())) {
             return this;
         }
         makeElementsMutable();
@@ -754,7 +756,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     public static final int XPATH_STYLE = 0, XML_OPEN = 1, XML_CLOSE = 2, XML_NO_VALUE = 3;
     public static final String NEWLINE = "\n";
 
-    private final class Element implements Cloneable {
+    private final class Element {
         private final String element;
         private Map<String, String> attributes; // = new TreeMap(AttributeComparator);
 
@@ -1066,22 +1068,29 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      *
      * Called by XPathParts.replace and CldrItem.split.
      */
-    public XPathParts set(XPathParts parts) {
-        if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen Element");
-        }
-
-        dtdData = parts.dtdData;
-        elements.clear();
-        if (parts.elements != null && parts.elements.size() > 0) {
-            makeElementsMutable();
-        }
-        for (Element element : parts.elements) {
-            elements.add(element.cloneAsThawed());
-        }
-        return this;
-
-    }
+//    public XPathParts set(XPathParts parts) {
+//        if (frozen) {
+//            throw new UnsupportedOperationException("Can't modify frozen Element");
+//        }
+//        dtdData = parts.dtdData;
+//        if (parts.isFrozen()) {
+//            System.out.println("enter");
+//            elements = parts.elements;
+//            return this;
+//        } 
+//        
+//        if (!elements.isEmpty()) {
+//            makeElementsMutable();
+//            elements.clear();
+//        }
+//        if (parts.elements != null && !parts.elements.isEmpty()) {
+//            makeElementsMutable();
+//        }
+//        for (Element element : parts.elements) {
+//            elements.add(element.cloneAsThawed());
+//        }
+//        return this;
+//    }
 
     /**
      * Replace up to i with parts
@@ -1089,18 +1098,18 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      * @param i
      * @param parts
      */
-    public XPathParts replace(int i, XPathParts parts) {
-        if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen Element");
-        }
-        List<Element> temp = elements;
-        elements = new ArrayList<>();
-        set(parts);
-        for (; i < temp.size(); ++i) {
-            elements.add(temp.get(i));
-        }
-        return this;
-    }
+//    public XPathParts replace(int i, XPathParts parts) {
+//        if (frozen) {
+//            throw new UnsupportedOperationException("Can't modify frozen Element");
+//        }
+//        List<Element> temp = elements;
+//        elements = new ArrayList<>();
+//        set(parts);
+//        for (; i < temp.size(); ++i) {
+//            elements.add(temp.get(i));
+//        }
+//        return this;
+//    }
 
     /**
      * Utility to write a comment.
