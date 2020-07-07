@@ -34,6 +34,7 @@ public class CLDRConfig extends Properties {
     public static boolean DEBUG = false;
     private static CLDRConfig INSTANCE = null;
     public static final String SUBCLASS = CLDRConfig.class.getName() + "Impl";
+    private static File cldrDir;
 
     /**
      * Object to use for synchronization when interacting with Factory
@@ -534,9 +535,13 @@ public class CLDRConfig extends Properties {
     }
 
     public File getCldrBaseDirectory() {
+        if (cldrDir != null) {
+            return cldrDir;
+        }
         String dir = getProperty("CLDR_DIR", null);
         if (dir != null) {
-            return new File(dir);
+            cldrDir = new File(dir);
+            return cldrDir;
         } else {
             return null;
         }
