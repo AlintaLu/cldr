@@ -25,6 +25,9 @@ import org.unicode.cldr.util.SupplementalDataInfo.PluralType;
 import org.unicode.cldr.util.XPathParts;
 
 import com.google.common.base.Splitter;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.NumberFormat;
@@ -78,6 +81,17 @@ public class CheckNumbers extends FactoryCheckCLDR {
      * Special flag for POSIX locale.
      */
     boolean isPOSIX;
+
+    private static LoadingCache<String, Integer> valueToMinDigitsCache = CacheBuilder.newBuilder()
+        .maximumSize(100)
+        .build(
+            new CacheLoader<String, Integer>() {
+                @Override
+                public Integer load(String value) {
+                    DecimalFormat format = new DecimalFormat(value);
+                    return format.getMinimumIntegerDigits();
+                }
+            });
 
     public CheckNumbers(Factory factory) {
         super(factory);
@@ -384,8 +398,7 @@ public class CheckNumbers extends FactoryCheckCLDR {
         // system and type.
         // Decimal formats of the same type should have the same number
         // of integer digits in all the available plural forms.
-        DecimalFormat format = new DecimalFormat(value);
-        int numIntegerDigits = format.getMinimumIntegerDigits();
+        int numIntegerDigits = valueToMinDigitsCache.getUnchecked(value);
         String countString = parts.getAttributeValue(-1, "count");
         Count thisCount = null;
         try {
@@ -432,8 +445,7 @@ public class CheckNumbers extends FactoryCheckCLDR {
             String otherPattern = resolvedFile.getWinningValue(parts.toString());
             // Ignore the type="other" pattern if not present or invalid.
             if (otherPattern == null || findUnquotedChars(type, otherPattern) != null) continue;
-            format = new DecimalFormat(otherPattern);
-            int numIntegerDigitsOther = format.getMinimumIntegerDigits();
+            int numIntegerDigitsOther = valueToMinDigitsCache.getUnchecked(value);
             if (pluralExamples.get(count).size() == 1 && numIntegerDigitsOther <= 0) {
                 // If a plural case corresponds to a single double value, the format is
                 // allowed to not include a numeric value and in this way be inconsistent
