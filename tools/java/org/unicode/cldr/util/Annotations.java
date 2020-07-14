@@ -621,6 +621,9 @@ public class Annotations {
         MyHandler myHandler = new MyHandler(dirCache, locale, parentData);
         XMLFileReader xfr = new XMLFileReader().setHandler(myHandler);
         xfr.read(dir + "/" + locale + ".xml", -1, true);
+        if (InstrumentFileReading.INSTRUMENT_READING) {
+            InstrumentFileReading.SINGLETON.load(InstrumentFileReading.ReadId.XMLFileReaderAnnotation, dir + "/" + locale + ".xml");
+        }
         return myHandler.cleanup();
     }
 

@@ -174,7 +174,7 @@ public class TestAll extends TestGroup {
         sb.append("Tests took ");
         sb.append(dispBean.toString());
         System.out.println(sb.toString());
-        InstrumentFileReading.SINGLETON.outputResult();
+        InstrumentFileReading.SINGLETON.outputResult("TestAll");
         InstrumentCache.SINGLETON.printCaches("TestAll");
         if (errCount != 0) {
             System.exit(1);

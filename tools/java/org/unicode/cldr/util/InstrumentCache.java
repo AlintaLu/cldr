@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class InstrumentCache {
-    public static final boolean INSTRUMENT_CACHE = CldrUtility.getProperty("INSTRUMENT_CACHE", false);
+    public static final boolean INSTRUMENT_CACHE = CldrUtility.getProperty("INSTRUMENT_CACHE", true);
 
     public static final InstrumentCache SINGLETON = new InstrumentCache();
 
@@ -100,7 +100,7 @@ public class InstrumentCache {
 
         // output to file
         try {
-            String savePath = "/usr/local/google/home/yqlu/Documents/CLDRProject/data/0713/";
+            String savePath = "/usr/local/google/home/yqlu/Documents/CLDRProject/data/0714/";
             Files.write(Paths.get(savePath + "instrument-cache-"
                         + methodName + "-" + java.time.LocalDateTime.now() + ".tsv"),
                         sb.toString().getBytes());

@@ -546,6 +546,10 @@ public class XMLFileReader {
 
     public static List<Pair<String, String>> loadPathValues(String filename, List<Pair<String, String>> data, boolean validating, boolean full,
         Function<String, String> valueFilter) {
+        if (InstrumentFileReading.INSTRUMENT_READING) {
+            InstrumentFileReading.SINGLETON.load(InstrumentFileReading.ReadId.XMLFileReaderLoadPathValues, filename + ','
+                + validating + "," + full + ',' + valueFilter);
+        }
         try {
             new XMLFileReader()
             .setHandler(new PathValueListHandler(data, full, valueFilter))
