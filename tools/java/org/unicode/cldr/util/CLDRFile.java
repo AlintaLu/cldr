@@ -347,6 +347,9 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
             if (localeName == null) {
                 cldrFile.dataSource.setLocaleID(cldrFile.getLocaleIDFromIdentity());
             }
+            if (InstrumentFileReading.INSTRUMENT_READING) {
+                InstrumentFileReading.SINGLETON.load(fileName);
+            }
             return cldrFile;
         } catch (SAXParseException e) {
             // System.out.println(CLDRFile.showSAX(e));

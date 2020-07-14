@@ -520,6 +520,9 @@ public class SimpleFactory extends Factory {
             if (DEBUG_SIMPLEFACTORY) {
                 System.out.println("HandleMake:Returning cached result for locale " + localeName);
             }
+            if (InstrumentCache.INSTRUMENT_CACHE) {
+                InstrumentCache.SINGLETON.access(InstrumentCache.CacheId.SimpleFactory, cacheKey.toString());
+            }
             return result;
         }
 //        synchronized (cache) {
@@ -535,6 +538,9 @@ public class SimpleFactory extends Factory {
             if (result != null) {
                 if (DEBUG_SIMPLEFACTORY) {
                     System.out.println("HandleMake:Returning cached result for locale " + localeName);
+                }
+                if (InstrumentCache.INSTRUMENT_CACHE) {
+                    InstrumentCache.SINGLETON.access(InstrumentCache.CacheId.SimpleFactory, cacheKey.toString());
                 }
                 return result;
             }
@@ -566,6 +572,10 @@ public class SimpleFactory extends Factory {
                 mapToSynchronizeOn.put(cacheKey, result);
                 //                combinedCache.put(cacheKey, result);
                 //                cache.put(localeName, result);
+                if (InstrumentCache.INSTRUMENT_CACHE) {
+                    InstrumentCache.SINGLETON.add(InstrumentCache.CacheId.SimpleFactory, cacheKey.toString());
+                    InstrumentCache.SINGLETON.access(InstrumentCache.CacheId.SimpleFactory, cacheKey.toString());
+                }
             }
             return result;
         }

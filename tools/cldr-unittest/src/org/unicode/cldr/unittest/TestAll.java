@@ -8,6 +8,8 @@ import java.io.Writer;
 import java.util.Date;
 
 import org.unicode.cldr.util.CLDRConfig;
+import org.unicode.cldr.util.InstrumentCache;
+import org.unicode.cldr.util.InstrumentFileReading;
 
 import com.ibm.icu.dev.test.TestFmwk.TestGroup;
 import com.ibm.icu.text.DateFormat;
@@ -172,6 +174,8 @@ public class TestAll extends TestGroup {
         sb.append("Tests took ");
         sb.append(dispBean.toString());
         System.out.println(sb.toString());
+        InstrumentFileReading.SINGLETON.outputResult();
+        InstrumentCache.SINGLETON.printCaches("TestAll");
         if (errCount != 0) {
             System.exit(1);
         }
