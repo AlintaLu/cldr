@@ -18,7 +18,7 @@ public class CLDRFileCache {
 
     public static final CLDRFileCache SINGLETON = new CLDRFileCache();
 
-    private static final int CACHE_LIMIT = 250;
+    private static final int CACHE_LIMIT = 340;
 
     Cache<CLDRCacheKey, CLDRFile> cache;
 
@@ -28,6 +28,11 @@ public class CLDRFileCache {
         cache =  CacheBuilder.newBuilder().maximumSize(CACHE_LIMIT).softValues().build();
     }
 
+    public CLDRFile getCLDRFileIfPresent(String localeName, List<File> parentDirs, DraftStatus minimalDraftStatus) {
+        CLDRCacheKey cacheKey = new CLDRCacheKey(localeName, false, minimalDraftStatus, parentDirs);
+        CLDRFile file = cache.getIfPresent(cacheKey);
+        return file;
+    }
 
     public CLDRFile getCLDRFile (String localeName, List<File> parentDirs, DraftStatus minimalDraftStatus) {
         CLDRFile res;
@@ -49,36 +54,42 @@ public class CLDRFileCache {
             // make CLDRFiles created from each XMLSource and cache them
             List<CLDRFile> list = new ArrayList<>();
             for (File dir: parentDirs) {
-                CLDRCacheKey fileCacheKey = new CLDRCacheKey(localeName, false, minimalDraftStatus, Arrays.asList(new File[] {dir}));
-                CLDRFile cldrFile = cache.getIfPresent(fileCacheKey);
-                if (cldrFile == null) {
-                    cldrFile = SimpleFactory.makeFile(localeName, dir, minimalDraftStatus);
-                    // check frozen
-                    if (!cldrFile.isFrozen()) {
-                        cldrFile.freeze();
-                    }
-                    cache.put(fileCacheKey, cldrFile);
-                }
+                CLDRFile cldrFile = makeSingleCLDRFile(localeName, minimalDraftStatus, dir);
                 list.add(cldrFile);
             }
 
-            if (list.size() == 1) {
-                return list.get(0);
-            } else {
-                // merge all CLDRFiles into one CLDRFile
-                CLDRFile combinedCLDRFile = list.get(0).cloneAsThawed();
-                for (int i = 1; i < list.size(); i++) {
-                    CLDRFile other = list.get(i);
-                    combinedCLDRFile.putAll(other, CLDRFile.MERGE_KEEP_MINE);
-                    combinedCLDRFile.dataSource.getXpathComments().joinAll(other.dataSource.getXpathComments());
-                }
-                combinedCLDRFile.freeze();
-                cache.put(cacheKey, combinedCLDRFile);
-                return combinedCLDRFile;
-            }
+            // return combinedCldrFile
+            return makeCombinedCLDRFile(list, cacheKey);
         }
     }
 
+    public CLDRFile makeSingleCLDRFile(String localeName, DraftStatus minimalDraftStatus, File dir) {
+        CLDRCacheKey fileCacheKey = new CLDRCacheKey(localeName, false, minimalDraftStatus, Arrays.asList(new File[] {dir}));
+        CLDRFile cldrFile = cache.getIfPresent(fileCacheKey);
+        if (cldrFile == null) {
+            cldrFile = SimpleFactory.makeFile(localeName, dir, minimalDraftStatus);
+            // check frozen
+            if (!cldrFile.isFrozen()) {
+                cldrFile.freeze();
+            }
+            cache.put(fileCacheKey, cldrFile);
+        }
+        return cldrFile;
+    }
 
-
+    public CLDRFile makeCombinedCLDRFile(List<CLDRFile> list, CLDRCacheKey cacheKey) {
+        if (list.size() == 1) {
+            return list.get(0);
+        }
+        // merge all CLDRFiles into one CLDRFile
+        CLDRFile combinedCLDRFile = list.get(0).cloneAsThawed();
+        for (int i = 1; i < list.size(); i++) {
+            CLDRFile other = list.get(i);
+            combinedCLDRFile.putAll(other, CLDRFile.MERGE_KEEP_MINE);
+            combinedCLDRFile.dataSource.getXpathComments().joinAll(other.dataSource.getXpathComments());
+        }
+        combinedCLDRFile.freeze();
+        cache.put(cacheKey, combinedCLDRFile);
+        return combinedCLDRFile;
+    }
 }

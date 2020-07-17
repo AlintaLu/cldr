@@ -23,6 +23,14 @@ public class SimpleXMLSource extends XMLSource {
     private Object VALUE_TO_PATH_MUTEX = new Object();
     private VersionInfo dtdVersionInfo;
 
+    public Map<String, String> getXpath_value(){
+        return xpath_value;
+    }
+
+    public Comments getXpath_comments() {
+        return xpath_comments;
+    }
+
     public SimpleXMLSource(String localeID) {
         this.setLocaleID(localeID);
     }
