@@ -200,6 +200,19 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
         }
     }
 
+    /**
+     * get Unresolved CLDRFile
+     * @param localeId
+     * @param file
+     * @param minimumDraftStatus
+     */
+    public CLDRFile(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
+        // order matters
+        this.dataSource = SimpleXMLSource.getFrozenInstance(localeId, dirs, minimalDraftStatus);
+        this.dtdType = ((SimpleXMLSource) this.dataSource).getSimpleXMLSourceDtdType();
+        this.dtdData = DtdData.getInstance(this.dtdType);
+    }
+
     public CLDRFile(XMLSource dataSource, XMLSource... resolvingParents) {
         List<XMLSource> sourceList = new ArrayList<>();
         sourceList.add(dataSource);
@@ -1856,7 +1869,8 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
                 + ", systemId: " + systemId);
             commentStack++;
             target.dtdType = DtdType.valueOf(name);
-            target.dtdData = dtdData = DtdData.getInstance(target.dtdType);
+            ((SimpleXMLSource)target.dataSource).setDtdType(target.dtdType);  // new added
+            target.dtdData = dtdData = DtdData.getInstance(target.dtdType); 
         }
 
         @Override
