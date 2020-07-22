@@ -208,8 +208,8 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
      */
     public CLDRFile(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
         // order matters
-        this.dataSource = SimpleXMLSource.getFrozenInstance(localeId, dirs, minimalDraftStatus);
-        this.dtdType = ((SimpleXMLSource) this.dataSource).getSimpleXMLSourceDtdType();
+        this.dataSource = XMLSource.getFrozenInstance(localeId, dirs, minimalDraftStatus);
+        this.dtdType = dataSource.getSimpleXMLSourceDtdType();
         this.dtdData = DtdData.getInstance(this.dtdType);
     }
 
@@ -3906,4 +3906,5 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
             return CLDRFile.this.getSourceLocaleID(xpath, status);
         }
     }
+    
 }

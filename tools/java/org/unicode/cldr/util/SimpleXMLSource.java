@@ -10,13 +10,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 
 import org.unicode.cldr.util.CLDRFile.DraftStatus;
 import org.unicode.cldr.util.XPathParts.Comments;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.ibm.icu.impl.Relation;
 import com.ibm.icu.text.Normalizer2;
 import com.ibm.icu.text.UnicodeSet;
@@ -224,104 +226,5 @@ public class SimpleXMLSource extends XMLSource {
     public VersionInfo getDtdVersionInfo() {
         return dtdVersionInfo;
     }
-    
-    
-    private DtdType dtdType;
-    public DtdType getSimpleXMLSourceDtdType() {
-        return dtdType;
-    }
 
-    public void setDtdType(DtdType dtdType) {
-        this.dtdType = dtdType;
-    }
-
-    private static class XMLSourceCacheKey {
-        String localeId;
-        List<File> dirs;
-        DraftStatus minimalDraftStatus;
-        int hashCode;
-        public XMLSourceCacheKey(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
-            this.localeId = localeId;
-            this.dirs = dirs;
-            this.minimalDraftStatus = minimalDraftStatus;
-            this.hashCode = Objects.hash(this.localeId, this.dirs, this.minimalDraftStatus);
-        }
-        
-        @Override
-        public int hashCode() {
-            return hashCode;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-            XMLSourceCacheKey other = (XMLSourceCacheKey) obj;
-            if (!Objects.equals(dirs, other.dirs)) {
-                return false;
-            }
-            if (minimalDraftStatus != other.minimalDraftStatus) {
-                return false;
-            }
-            if (localeId == null) {
-                if (other.localeId != null) {
-                    return false;
-                }
-            } else if (!localeId.equals(other.localeId)) {
-                return false;
-            }
-            return true;
-        }
-    }
-
-    private static final int CACHE_LIMIT = 10000;
-    private static Cache<XMLSourceCacheKey, XMLSource> cache = CacheBuilder.newBuilder()
-        .maximumSize(CACHE_LIMIT)
-        .softValues().build();
-
-    public static synchronized XMLSource getFrozenInstance(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
-        XMLSourceCacheKey key = new XMLSourceCacheKey(localeId, dirs, minimalDraftStatus);
-        XMLSource source = cache.getIfPresent(key);
-        if (source != null) {
-            return source;
-        }
-
-        List<XMLSource> list = new ArrayList<XMLSource>();
-        for (File dir: dirs) {
-            List<File> dirList = new ArrayList<File>();
-            dirList.add(dir);
-            XMLSourceCacheKey singleKey = new XMLSourceCacheKey(localeId, dirList, minimalDraftStatus);
-            XMLSource singleSource = cache.getIfPresent(singleKey);
-            if (singleSource == null) {
-                File file = new File(dir, localeId + ".xml");
-               
-                CLDRFile cldrFile = CLDRFile.loadFromFile(file, localeId, minimalDraftStatus);
-                singleSource = cldrFile.dataSource;
-                
-                singleSource.freeze();
-                cache.put(singleKey, singleSource);
-            }
-            list.add(singleSource);
-        }
-        if (list.size() == 1) {
-            return list.get(0);
-        }
-        source = list.get(0).cloneAsThawed();
-        for (int i = 1; i < list.size(); i++) {
-            XMLSource other = list.get(i);
-            source.putAll(other, 0); // 0 --> merge_keep_mine
-            source.getXpathComments().joinAll(other.getXpathComments());
-        }
-        source.freeze();
-        cache.put(key, source);
-  
-        return source;
-    }
 }
