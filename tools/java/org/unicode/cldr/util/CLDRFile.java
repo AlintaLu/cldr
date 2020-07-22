@@ -1869,7 +1869,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
                 + ", systemId: " + systemId);
             commentStack++;
             target.dtdType = DtdType.valueOf(name);
-            target.dtdData = dtdData = DtdData.getInstance(target.dtdType); 
+            target.dtdData = dtdData = DtdData.getInstance(target.dtdType);
         }
 
         @Override
@@ -3905,5 +3905,4 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
             return CLDRFile.this.getSourceLocaleID(xpath, status);
         }
     }
-    
 }
