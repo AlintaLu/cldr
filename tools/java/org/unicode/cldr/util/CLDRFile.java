@@ -1869,7 +1869,6 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
                 + ", systemId: " + systemId);
             commentStack++;
             target.dtdType = DtdType.valueOf(name);
-            ((SimpleXMLSource)target.dataSource).setDtdType(target.dtdType);  // new added
             target.dtdData = dtdData = DtdData.getInstance(target.dtdType); 
         }
 
