@@ -46,6 +46,7 @@ import com.google.common.collect.Iterators;
 import com.ibm.icu.impl.Utility;
 import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.util.Freezable;
+import com.ibm.icu.util.ICUUncheckedIOException;
 import com.ibm.icu.util.Output;
 import com.ibm.icu.util.VersionInfo;
 
@@ -1872,7 +1873,9 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             fullFileName = f.getCanonicalPath();
             fis = InputStreamFactory.createInputStream(f);
         } catch (IOException e) {
-            e.printStackTrace();
+            StringBuilder sb = new StringBuilder("Cannot read the file '");
+            sb.append(f);
+            throw new ICUUncheckedIOException(sb.toString(), e);
         }
 
         fis = new StripUTF8BOMInputStream(fis);
