@@ -8,7 +8,6 @@
 package org.unicode.cldr.util;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -29,7 +28,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.WeakHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,7 +43,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterators;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.ibm.icu.impl.Utility;
 import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.util.Freezable;
@@ -1766,12 +1763,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         }
         return null;
     }
-    
-    
-    
-    
-    // start from here!!!!!
-    
+
     private DtdType dtdType;
     public DtdType getSimpleXMLSourceDtdType() {
         return dtdType;
@@ -1827,7 +1819,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         }
     }
 
-    private static final int CACHE_LIMIT = 250;
+    private static final int CACHE_LIMIT = 500;
     private static LoadingCache<XMLSourceCacheKey, XMLSource> cache = CacheBuilder.newBuilder()
         .maximumSize(CACHE_LIMIT)
         .softValues()
@@ -1849,17 +1841,13 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             return source;
         }
 
-        List<File> dirList = new ArrayList<File>();
+        List<File> dirList = new ArrayList<>();
         for (File dir: key.dirs) {
             dirList.clear();
             dirList.add(dir);
             XMLSourceCacheKey singleKey = new XMLSourceCacheKey(key.localeId, dirList, key.minimalDraftStatus);
             XMLSource singleSource = null;
-            try {
-                singleSource = cache.get(singleKey);
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-            }
+            singleSource = cache.getUnchecked(singleKey);
             list.add(singleSource);
         }
 
@@ -1874,14 +1862,9 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
     }
     public static XMLSource getFrozenInstance(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
         XMLSourceCacheKey key = new XMLSourceCacheKey(localeId, dirs, minimalDraftStatus);
-        try {
-            return cache.get(key);
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        }
-        return null;
+        return cache.getUnchecked(key);
     }
-    
+
     public static XMLSource loadXMLFile (File f, String localeId, DraftStatus minimalDraftStatus) {
         String fullFileName = f.getAbsolutePath();
         InputStream fis = null;
@@ -1909,10 +1892,10 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         }
         return source;
     }
-    
+
     private static boolean LOG_PROGRESS = false;
     private static final boolean DEBUG = false;
-    
+
     private static class XMLNormalizingHandler implements AllHandler {
         private static UnicodeSet whitespace = new UnicodeSet("[:whitespace:]");
         private DraftStatus minimalDraftStatus;
@@ -2253,8 +2236,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
                 + ", systemId: " + systemId);
             commentStack++;
             source.dtdType = DtdType.valueOf(name);
-            dtdData = DtdData.getInstance(source.dtdType); 
-//            target.dtdData = dtdData = DtdData.getInstance(target.dtdType); 
+            dtdData = DtdData.getInstance(source.dtdType);
         }
 
         @Override
@@ -2417,7 +2399,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             throw exception;
         }
     }
-    
+
     /**
      * Sets the initial comment, replacing everything that was there.
      */
@@ -2426,7 +2408,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         this.getXpathComments().setInitialComment(comment);
         return this;
     }
-    
+
     public XMLSource addComment(String xpath, String comment, Comments.CommentType type) {
         if (locked) throw new UnsupportedOperationException("Attempt to modify locked object");
         Log.logln(LOG_PROGRESS, "ADDING Comment: \t" + type + "\t" + xpath + " \t" + comment);
@@ -2440,7 +2422,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         }
         return this;
     }
-    
+
     /**
      * Get a string value from an xpath.
      */
@@ -2448,7 +2430,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             String result = this.getValueAtPath(xpath);
             return result;
     }
-    
+
     public String getFullXPath(String xpath) {
         if (xpath == null) {
             throw new NullPointerException("Null distinguishing xpath");
@@ -2456,7 +2438,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         String result = this.getFullPath(xpath);
         return result != null ? result : xpath; // we can't add any non-distinguishing values if there is nothing there.
     }
-    
+
     /**
      * Add a new element to a CLDRFile.
      *
@@ -2474,7 +2456,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         }
         return this;
     }
-    
+
     /**
      * Show a SAX exception in a readable form.
      */
