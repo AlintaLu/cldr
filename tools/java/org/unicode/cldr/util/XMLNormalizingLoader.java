@@ -453,7 +453,7 @@ public class XMLNormalizingLoader{
                         dtdData.dtdType == DtdType.ldml
                             ? CLDRFile.getAttributeOrdering()
                             : dtdData.getAttributeComparator());
-                    isSupplemental = source.getDtdType() == DtdType.ldml ? 0 : 1;
+                    isSupplemental = source.getXMLSourceDtdType() == DtdType.ldml ? 0 : 1;
                 }
                 push(qName, attributes);
             } catch (RuntimeException e) {
@@ -500,7 +500,7 @@ public class XMLNormalizingLoader{
                 + ", systemId: " + systemId);
             commentStack++;
             source.setDtdType(DtdType.valueOf(name));
-            dtdData = DtdData.getInstance(source.getSimpleXMLSourceDtdType());
+            dtdData = DtdData.getInstance(source.getXMLSourceDtdType());
         }
 
         @Override
@@ -663,4 +663,12 @@ public class XMLNormalizingLoader{
             throw exception;
         }
     }
+
+//    public static void main(String[] args) {
+//        CLDRConfig config = CLDRConfig.getInstance();
+//        List<File> list = new ArrayList();
+//        list.add(new File("/usr/local/google/home/yqlu/Documents/CLDRProject/cldr/common/validity"));  // language
+//        XMLSource source = XMLSource.getFrozenInstance("language", list, DraftStatus.unconfirmed);
+//        System.out.println("end!"  + source.getLocaleID());
+//    }
 }

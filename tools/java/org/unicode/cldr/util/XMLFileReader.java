@@ -8,6 +8,7 @@
  */
 package org.unicode.cldr.util;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,9 +16,15 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Stack;
+import java.util.regex.Pattern;
 
+import org.unicode.cldr.util.CLDRFile.DraftStatus;
+import org.unicode.cldr.util.XPathParts.Comments;
+import org.unicode.cldr.util.XPathParts.Comments.CommentType;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.ErrorHandler;
@@ -545,8 +552,44 @@ public class XMLFileReader {
         return loadPathValues(filename, data, validating, full, null);
     }
 
+
+    private static boolean USE_CLDRFILE_CACHE = true;
+    private static final Pattern CAPTURE_ORDER = Pattern.compile("\\[@_q=\"\\d+\"\\]");
     public static List<Pair<String, String>> loadPathValues(String filename, List<Pair<String, String>> data, boolean validating, boolean full,
         Function<String, String> valueFilter) {
+        if (USE_CLDRFILE_CACHE) {
+            int lastSlashIndex = filename.lastIndexOf('/');
+            String localeName = filename.substring(lastSlashIndex + 1, filename.length() - 4);
+            String dirStr = filename.substring(0, lastSlashIndex);
+            String dirName = dirStr.substring(dirStr.lastIndexOf('/') + 1);
+            XMLSource source = XMLSource.getFrozenInstance(localeName,
+                Arrays.asList(new File[] {new File(dirStr)}), DraftStatus.unconfirmed);
+            Map<String, String> xpath_value = ((SimpleXMLSource)source).xpath_value;
+            Comments comments =  source.getXpathComments();
+
+            PathValueListHandler handler = new PathValueListHandler(data, full, valueFilter);
+            for (String xpath: xpath_value.keySet()) {
+                String fullXPath = source.getFullXPath(xpath);
+                // fullPath replace All "[@_q="18"]"
+//                int index = fullXPath.indexOf("[@_q=");
+//                int lastIndex = 0;
+//                while (index >= 0) {
+//                    lastIndex = fullXPath.indexOf("]", index);
+//                    fullXPath = fullXPath.substring(0, index) + fullXPath.substring(lastIndex + 1);
+//                    index = fullXPath.indexOf("[@_q=");
+//                }
+                fullXPath = CAPTURE_ORDER.matcher(fullXPath).replaceAll("");
+                handler.handlePathValue(fullXPath, xpath_value.get(xpath));
+                for (CommentType c: CommentType.values()) {
+                    String comment = comments.getComment(c, xpath);
+                    if (comment != null) {
+                        handler.handleComment(fullXPath, comment);
+                    }
+                }
+            }
+            return data;
+//            }
+        }
         try {
             new XMLFileReader()
             .setHandler(new PathValueListHandler(data, full, valueFilter))

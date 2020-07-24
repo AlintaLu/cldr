@@ -1751,7 +1751,7 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
     }
 
     private DtdType dtdType;
-    public DtdType getSimpleXMLSourceDtdType() {
+    public DtdType getXMLSourceDtdType() {
         return this.dtdType;
     }
 

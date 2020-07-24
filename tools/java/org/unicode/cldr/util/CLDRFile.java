@@ -209,7 +209,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
     public CLDRFile(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
         // order matters
         this.dataSource = XMLSource.getFrozenInstance(localeId, dirs, minimalDraftStatus);
-        this.dtdType = dataSource.getSimpleXMLSourceDtdType();
+        this.dtdType = dataSource.getXMLSourceDtdType();
         this.dtdData = DtdData.getInstance(this.dtdType);
     }
 
@@ -2179,11 +2179,30 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
         }
     }
 
-    static final Relation<R2<String, String>, String> bcp47AliasMap = CLDRConfig.getInstance().getSupplementalDataInfo().getBcp47Aliases();
+    // static final Relation<R2<String, String>, String> bcp47AliasMap = CLDRConfig.getInstance().getSupplementalDataInfo().getBcp47Aliases();
+
+    private static class StaticWrapper {
+        private Relation<R2<String, String>, String> bcp47AliasMap = null;
+        private StaticWrapper() {
+            bcp47AliasMap = CLDRConfig.getInstance().getSupplementalDataInfo().getBcp47Aliases();
+        }
+        public Relation<R2<String, String>, String> getBcp47AliasMap() {
+            return bcp47AliasMap;
+        }
+        // singleton
+        private static StaticWrapper staticWrapperInstance = new StaticWrapper();
+        public static StaticWrapper getStaticWrapperInstance() {
+            return staticWrapperInstance;
+        }
+    }
+
+    public static Relation<R2<String, String>, String> getBcp47AliasMap() {
+        return StaticWrapper.getStaticWrapperInstance().getBcp47AliasMap();
+    }
 
     public static String getLongTzid(String code) {
         if (!code.contains("/")) {
-            Set<String> codes = bcp47AliasMap.get(Row.of("tz", code));
+            Set<String> codes = CLDRFile.getBcp47AliasMap().get(Row.of("tz", code));
             if (codes != null && !codes.isEmpty()) {
                 code = codes.iterator().next();
             }
