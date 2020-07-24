@@ -45,9 +45,9 @@ public class TestPaths extends TestFmwkPlus {
     }
 
     public void VerifyEnglishVsRoot() {
-        HashSet<String> rootPaths = new HashSet<>();
+        HashSet<String> rootPaths = new HashSet<String>();
         testInfo.getRoot().forEach(rootPaths::add);
-        HashSet<String> englishPaths = new HashSet<>();
+        HashSet<String> englishPaths = new HashSet<String>();
         testInfo.getEnglish().forEach(englishPaths::add);
         englishPaths.removeAll(rootPaths);
         if (englishPaths.size() == 0) {
@@ -55,8 +55,8 @@ public class TestPaths extends TestFmwkPlus {
         }
         Factory phf = PathHeader.getFactory(testInfo.getEnglish());
         Status status = new Status();
-        Set<PathHeader> suspiciousPaths = new TreeSet<>();
-        Set<PathHeader> errorPaths = new TreeSet<>();
+        Set<PathHeader> suspiciousPaths = new TreeSet<PathHeader>();
+        Set<PathHeader> errorPaths = new TreeSet<PathHeader>();
         ImmutableSet<String> SKIP_VARIANT = ImmutableSet.of(
             "ps-variant", "ug-variant", "ky-variant", "az-short",
             "Arab-variant", "am-variant", "pm-variant");
@@ -109,7 +109,7 @@ public class TestPaths extends TestFmwkPlus {
          * locale-dependent, run it only once for each path, for the first
          * locale in which the path occurs.
          */
-        Set<String> pathsSeen = new HashSet<>();
+        Set<String> pathsSeen = new HashSet<String>();
         CLDRFile englishFile = testInfo.getCldrFactory().make("en", true);
         PathHeader.Factory phf = PathHeader.getFactory(englishFile);
         Status status = new Status();
@@ -236,7 +236,7 @@ public class TestPaths extends TestFmwkPlus {
 
     private Collection<String> getLocalesToTest() {
         return params.inclusion <= 5 ? Arrays.asList("root", "en", "ja", "ar", "de", "ru")
-            : params.inclusion < 10 ? testInfo.getCldrFactory().getAvailableLanguages()
+            : params.inclusion < 10 ? testInfo.getCldrFactory().getAvailableLanguages() 
                 : testInfo.getCldrFactory().getAvailable();
     }
 
@@ -442,7 +442,6 @@ public class TestPaths extends TestFmwkPlus {
                         if (skipLast.contains(last)) {
                             continue;
                         }
-
                         String dpath = CLDRFile.getDistinguishingXPath(path, normalizedPath);
                         if (!dpath.equals(path)) {
                             checkParts(dpath, dtdData);

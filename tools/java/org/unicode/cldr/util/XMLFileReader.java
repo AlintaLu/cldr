@@ -553,11 +553,11 @@ public class XMLFileReader {
     }
 
 
-    private static boolean USE_CLDRFILE_CACHE = true;
+    private static boolean USE_XMLSOURCE_CACHE = true;
     private static final Pattern CAPTURE_ORDER = Pattern.compile("\\[@_q=\"\\d+\"\\]");
     public static List<Pair<String, String>> loadPathValues(String filename, List<Pair<String, String>> data, boolean validating, boolean full,
         Function<String, String> valueFilter) {
-        if (USE_CLDRFILE_CACHE) {
+        if (USE_XMLSOURCE_CACHE) {
             int lastSlashIndex = filename.lastIndexOf('/');
             String localeName = filename.substring(lastSlashIndex + 1, filename.length() - 4);
             String dirStr = filename.substring(0, lastSlashIndex);
