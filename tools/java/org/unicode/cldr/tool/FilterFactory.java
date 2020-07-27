@@ -159,10 +159,9 @@ public class FilterFactory extends Factory {
             String value = rawFile.getStringValue(xpath);
             // Remove count="x" if the value is equivalent to count="other".
             if (xpath.contains("[@count=")) {
-                XPathParts parts = XPathParts.getFrozenInstance(xpath);
+                XPathParts parts = XPathParts.getInstance(xpath); // not frozen, for setAttribute
                 String count = parts.getAttributeValue(-1, "count");
                 if (!count.equals("other")) {
-                    parts = parts.cloneAsThawed();
                     parts.setAttribute(-1, "count", "other");
                     String otherPath = parts.toString();
                     if (value.equals(rawFile.getStringValue(otherPath))) {

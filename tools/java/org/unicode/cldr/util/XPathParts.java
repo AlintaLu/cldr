@@ -21,8 +21,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.ibm.icu.impl.Utility;
@@ -441,18 +439,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     }
 
     public void putAttributeValue(int elementIndex, String attribute, String value) {
-        elementIndex = elementIndex >= 0 ? elementIndex : elementIndex + size();
-        Map<String, String> ea = elements.get(elementIndex).attributes;
-        if (value == null && (ea == null || !ea.containsKey(attribute))) {
-            return;
-        }
-        if (value != null && ea != null && value.equals(ea.get(attribute))) {
-            return;
-        }
-        makeElementsMutable();
-        makeElementMutable(elementIndex);
-        // make mutable may change elements.get(elementIndex), so we have to use elements.get(elementIndex) after calling
-        elements.get(elementIndex).putAttribute(attribute, value);
+        elements.get(elementIndex >= 0 ? elementIndex : elementIndex + size()).putAttribute(attribute, value);
     }
 
     /**
@@ -500,33 +487,9 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
                 dtdData = null;
             }
         }
-        makeElementsMutable();
         elements.add(new Element(element));
         return this;
     }
-
-    public void makeElementsMutable() {
-        if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen object.");
-        }
-
-        if (elements instanceof ImmutableList) {
-            elements = new ArrayList<>(elements);
-        }
-    }
-
-    public void makeElementMutable(int elementIndex) {
-        if (frozen) {
-            throw new UnsupportedOperationException("Can't modify frozen object.");
-        }
-
-        Element e = elements.get(elementIndex);
-        Map<String, String> ea = e.attributes;
-        if (ea == null || ea instanceof ImmutableMap) {
-            elements.set(elementIndex, e.cloneAsThawed());
-        }
-    }
-
 
     /**
      * Varargs version of addElement.
@@ -545,7 +508,8 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      * Add an attribute/value pair to the current last element.
      */
     public XPathParts addAttribute(String attribute, String value) {
-        putAttributeValue(elements.size() - 1, attribute, value);
+        Element e = elements.get(elements.size() - 1);
+        e.putAttribute(attribute, value);
         return this;
     }
 
@@ -554,7 +518,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     }
 
     public XPathParts removeAttribute(int elementIndex, String attributeName) {
-        putAttributeValue(elementIndex, attributeName, null);
+        elements.get(elementIndex >= 0 ? elementIndex : elementIndex + size()).putAttribute(attributeName, null);
         return this;
     }
 
@@ -563,15 +527,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     }
 
     public XPathParts removeAttributes(int elementIndex, Collection<String> attributeNames) {
-        elementIndex = elementIndex >= 0 ? elementIndex : elementIndex + size();
-        Map<String, String> ea = elements.get(elementIndex).attributes;
-        if (ea == null || attributeNames == null || attributeNames.isEmpty() || Collections.disjoint(attributeNames, ea.keySet())) {
-            return this;
-        }
-        makeElementsMutable();
-        makeElementMutable(elementIndex);
-        // make mutable may change elements.get(elementIndex), so we have to use elements.get(elementIndex) after calling
-        elements.get(elementIndex).removeAttributes(attributeNames);
+        elements.get(elementIndex >= 0 ? elementIndex : elementIndex + size()).removeAttributes(attributeNames);
         return this;
     }
 
@@ -756,7 +712,8 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     public static final int XPATH_STYLE = 0, XML_OPEN = 1, XML_CLOSE = 2, XML_NO_VALUE = 3;
     public static final String NEWLINE = "\n";
 
-    private final class Element {
+    private final class Element implements Cloneable, Freezable<Element> {
+        private volatile boolean frozen;
         private final String element;
         private Map<String, String> attributes; // = new TreeMap(AttributeComparator);
 
@@ -769,6 +726,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
         }
 
         public Element(String element, Map<String, String> attributes) {
+            this.frozen = false;
             this.element = element.intern();  // allow fast comparison
             if (attributes == null) {
                 this.attributes = null;
@@ -776,6 +734,12 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
                 this.attributes = new TreeMap<>(getAttributeComparator());
                 this.attributes.putAll(attributes);
             }
+        }
+
+        @Override
+        protected Object clone() throws CloneNotSupportedException {
+            return frozen ? this
+                : new Element(element, attributes);
         }
 
         /**
@@ -787,6 +751,9 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
          */
         public void putAttribute(String attribute, String value) {
             attribute = attribute.intern(); // allow fast comparison
+            if (frozen) {
+                throw new UnsupportedOperationException("Can't modify frozen object.");
+            }
             if (value == null) {
                 if (attributes != null) {
                     attributes.remove(attribute);
@@ -808,6 +775,9 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
          * @param attributeNames
          */
         private void removeAttributes(Collection<String> attributeNames) {
+            if (frozen) {
+                throw new UnsupportedOperationException("Can't modify frozen object.");
+            }
             if (attributeNames == null) {
                 return;
             }
@@ -963,9 +933,9 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
 
         private Map<String, String> getAttributes() {
             if (attributes == null) {
-                return ImmutableMap.of();
+                return Collections.emptyMap();
             }
-            return ImmutableMap.copyOf(attributes);
+            return Collections.unmodifiableMap(attributes);
         }
 
         private String getAttributeValue(String attribute) {
@@ -975,14 +945,23 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
             return attributes.get(attribute);
         }
 
-        public Element makeImmutable() {
-            if (attributes != null && !(attributes instanceof ImmutableMap)) {
-                attributes = ImmutableMap.copyOf(attributes);
-            }
+        @Override
+        public boolean isFrozen() {
+            return frozen;
+        }
 
+
+        @Override
+        public Element freeze() {
+            if (!frozen) {
+                attributes = attributes == null ? null
+                    : Collections.unmodifiableMap(attributes);
+                frozen = true;
+            }
             return this;
         }
 
+        @Override
         public Element cloneAsThawed() {
             return new Element(element, attributes);
         }
@@ -1055,7 +1034,6 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
         if (frozen) {
             throw new UnsupportedOperationException("Can't modify frozen Element");
         }
-        makeElementsMutable();
         elements.remove(elements.size() - 1);
         return this;
     }
@@ -1068,22 +1046,21 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      *
      * Called by XPathParts.replace and CldrItem.split.
      */
-//   If this is restored, it will need to be modified.
-//    public XPathParts set(XPathParts parts) {
-//        if (frozen) {
-//            throw new UnsupportedOperationException("Can't modify frozen Element");
-//        }
-//        try {
-//            dtdData = parts.dtdData;
-//            elements.clear();
-//            for (Element element : parts.elements) {
-//                elements.add((Element) element.clone());
-//            }
-//            return this;
-//        } catch (CloneNotSupportedException e) {
-//            throw (InternalError) new InternalError().initCause(e);
-//        }
-//    }
+    public XPathParts set(XPathParts parts) {
+        if (frozen) {
+            throw new UnsupportedOperationException("Can't modify frozen Element");
+        }
+        try {
+            dtdData = parts.dtdData;
+            elements.clear();
+            for (Element element : parts.elements) {
+                elements.add((Element) element.clone());
+            }
+            return this;
+        } catch (CloneNotSupportedException e) {
+            throw (InternalError) new InternalError().initCause(e);
+        }
+    }
 
     /**
      * Replace up to i with parts
@@ -1091,19 +1068,18 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      * @param i
      * @param parts
      */
-//    If this is restored, it will need to be modified.
-//    public XPathParts replace(int i, XPathParts parts) {
-//        if (frozen) {
-//            throw new UnsupportedOperationException("Can't modify frozen Element");
-//        }
-//        List<Element> temp = elements;
-//        elements = new ArrayList<>();
-//        set(parts);
-//        for (; i < temp.size(); ++i) {
-//            elements.add(temp.get(i));
-//        }
-//        return this;
-//    }
+    public XPathParts replace(int i, XPathParts parts) {
+        if (frozen) {
+            throw new UnsupportedOperationException("Can't modify frozen Element");
+        }
+        List<Element> temp = elements;
+        elements = new ArrayList<>();
+        set(parts);
+        for (; i < temp.size(); ++i) {
+            elements.add(temp.get(i));
+        }
+        return this;
+    }
 
     /**
      * Utility to write a comment.
@@ -1194,7 +1170,7 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
      */
     public XPathParts setAttribute(String elementName, String attributeName, String attributeValue) {
         int index = findElement(elementName);
-        putAttributeValue(index, attributeName, attributeValue);
+        elements.get(index).putAttribute(attributeName, attributeValue);
         return this;
     }
 
@@ -1214,11 +1190,11 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
                 if (pos < 0) break;
                 if (pos > 0 && attributeValue.charAt(pos - 1) == '-') --pos; // backup for "...-proposed"
                 if (pos == 0) {
-                    putAttributeValue(i, attribute, null);
+                    element.putAttribute(attribute, null);
                     break;
                 }
                 attributeValue = attributeValue.substring(0, pos); // strip it off
-                putAttributeValue(i, attribute, attributeValue);
+                element.putAttribute(attribute, attributeValue);
                 break; // there is only one alt!
             }
         }
@@ -1226,7 +1202,6 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     }
 
     public XPathParts setElement(int elementIndex, String newElement) {
-        makeElementsMutable();
         if (elementIndex < 0) {
             elementIndex += size();
         }
@@ -1236,7 +1211,6 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     }
 
     public XPathParts removeElement(int elementIndex) {
-        makeElementsMutable();
         elements.remove(elementIndex >= 0 ? elementIndex : elementIndex + size());
         return this;
     }
@@ -1252,7 +1226,8 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     }
 
     public XPathParts setAttribute(int elementIndex, String attributeName, String attributeValue) {
-        putAttributeValue(elementIndex, attributeName, attributeValue);
+        Element element = elements.get(elementIndex >= 0 ? elementIndex : elementIndex + size());
+        element.putAttribute(attributeName, attributeValue);
         return this;
     }
 
@@ -1267,9 +1242,9 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
             // ensure that it can't be modified. Later we can fix all the call sites to check frozen.
             List<Element> temp = new ArrayList<>(elements.size());
             for (Element element : elements) {
-                temp.add(element.makeImmutable());
+                temp.add(element.freeze());
             }
-            elements = ImmutableList.copyOf(temp);
+            elements = Collections.unmodifiableList(temp);
             frozen = true;
         }
         return this;
@@ -1283,12 +1258,8 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
          * Reference: https://unicode.org/cldr/trac/ticket/12007
          */
         xppClone.dtdData = this.dtdData;
-        if (!frozen) {
-            for (Element e : this.elements) {
-                xppClone.elements.add(e.cloneAsThawed());
-            }
-        } else {
-            xppClone.elements = this.elements;
+        for (Element e : this.elements) {
+            xppClone.elements.add(e.cloneAsThawed());
         }
         return xppClone;
     }
@@ -1336,15 +1307,19 @@ public final class XPathParts implements Freezable<XPathParts>, Comparable<XPath
     }
 
     public static String getPathWithoutAlt(String xpath) {
-        XPathParts xpp = getFrozenInstance(xpath).cloneAsThawed();
+        XPathParts xpp = getInstance(xpath);
         xpp.removeAttribute("alt");
         return xpp.toString();
     }
 
     private XPathParts removeAttribute(String attribute) {
         for (int i = 0; i < elements.size(); ++i) {
-            putAttributeValue(i, attribute, null);
+            elements.get(i).putAttribute(attribute, null);
         }
         return this;
+    }
+
+    public static XPathParts getInstance(String path) {
+        return getFrozenInstance(path).cloneAsThawed();
     }
 }

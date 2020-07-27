@@ -676,10 +676,7 @@ public class GenerateItemCounts {
         }
 
         private String fixKeyPath(String path) {
-            XPathParts parts = XPathParts.getFrozenInstance(path);
-            if (!SKIP_ORDERING) {
-                parts = parts.cloneAsThawed();
-            }
+            XPathParts parts = XPathParts.getInstance(path); // not frozen, for addAttribute
             for (int i = 0; i < parts.size(); ++i) {
                 String element = parts.getElement(i);
                 if (!SKIP_ORDERING) {

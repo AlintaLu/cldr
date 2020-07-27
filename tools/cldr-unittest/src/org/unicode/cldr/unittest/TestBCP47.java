@@ -46,20 +46,20 @@ public class TestBCP47 extends TestFmwk {
         String.class);
     static {
         for (String path : With.in(ENGLISH.iterator("//ldml/localeDisplayNames/keys/key"))) {
-            XPathParts parts = XPathParts.getFrozenInstance(path);
+            XPathParts parts = XPathParts.getInstance(path);
             String value = ENGLISH.getStringValue(path);
             String key = parts.getAttributeValue(-1, "type");
             keyTypeTranslations.put(key, "", value);
         }
         for (String path : With.in(ENGLISH.iterator("//ldml/localeDisplayNames/types/type"))) {
-            XPathParts parts = XPathParts.getFrozenInstance(path);
+            XPathParts parts = XPathParts.getInstance(path);
             String value = ENGLISH.getStringValue(path);
             String key = parts.getAttributeValue(-1, "key");
             String type = parts.getAttributeValue(-1, "type");
             keyTypeTranslations.put(key, type, value);
         }
         for (String path : With.in(ENGLISH.iterator("//ldml/localeDisplayNames/transformNames/transformName"))) {
-            XPathParts parts = XPathParts.getFrozenInstance(path);
+            XPathParts parts = XPathParts.getInstance(path);
             String value = ENGLISH.getStringValue(path);
             String type = parts.getAttributeValue(-1, "type");
             keyTypeTranslations.put("d0", type, value);

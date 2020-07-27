@@ -45,9 +45,9 @@ public class TestPaths extends TestFmwkPlus {
     }
 
     public void VerifyEnglishVsRoot() {
-        HashSet<String> rootPaths = new HashSet<String>();
+        HashSet<String> rootPaths = new HashSet<>();
         testInfo.getRoot().forEach(rootPaths::add);
-        HashSet<String> englishPaths = new HashSet<String>();
+        HashSet<String> englishPaths = new HashSet<>();
         testInfo.getEnglish().forEach(englishPaths::add);
         englishPaths.removeAll(rootPaths);
         if (englishPaths.size() == 0) {
@@ -55,8 +55,8 @@ public class TestPaths extends TestFmwkPlus {
         }
         Factory phf = PathHeader.getFactory(testInfo.getEnglish());
         Status status = new Status();
-        Set<PathHeader> suspiciousPaths = new TreeSet<PathHeader>();
-        Set<PathHeader> errorPaths = new TreeSet<PathHeader>();
+        Set<PathHeader> suspiciousPaths = new TreeSet<>();
+        Set<PathHeader> errorPaths = new TreeSet<>();
         ImmutableSet<String> SKIP_VARIANT = ImmutableSet.of(
             "ps-variant", "ug-variant", "ky-variant", "az-short",
             "Arab-variant", "am-variant", "pm-variant");
@@ -109,7 +109,7 @@ public class TestPaths extends TestFmwkPlus {
          * locale-dependent, run it only once for each path, for the first
          * locale in which the path occurs.
          */
-        Set<String> pathsSeen = new HashSet<String>();
+        Set<String> pathsSeen = new HashSet<>();
         CLDRFile englishFile = testInfo.getCldrFactory().make("en", true);
         PathHeader.Factory phf = PathHeader.getFactory(englishFile);
         Status status = new Status();
@@ -236,7 +236,7 @@ public class TestPaths extends TestFmwkPlus {
 
     private Collection<String> getLocalesToTest() {
         return params.inclusion <= 5 ? Arrays.asList("root", "en", "ja", "ar", "de", "ru")
-            : params.inclusion < 10 ? testInfo.getCldrFactory().getAvailableLanguages() 
+            : params.inclusion < 10 ? testInfo.getCldrFactory().getAvailableLanguages()
                 : testInfo.getCldrFactory().getAvailable();
     }
 
@@ -399,7 +399,7 @@ public class TestPaths extends TestFmwkPlus {
                     for (Pair<String, String> pathValue : XMLFileReader.loadPathValues(fullName, new ArrayList<Pair<String, String>>(), true)) {
                         String path = pathValue.getFirst();
                         final String value = pathValue.getSecond();
-                        XPathParts parts = XPathParts.getFrozenInstance(path);
+                        XPathParts parts = XPathParts.getInstance(path); ; // not frozen, for removeNonDistinguishing
                         if (dtdData == null) {
                             type = DtdType.valueOf(parts.getElement(0));
                             dtdData = DtdData.getInstance(type);
@@ -449,7 +449,6 @@ public class TestPaths extends TestFmwkPlus {
                         if (!normalizedPath.equals(path) && !normalizedPath[0].equals(dpath)) {
                             checkParts(normalizedPath[0], dtdData);
                         }
-                        parts = parts.cloneAsThawed();
                         counter = removeNonDistinguishing(parts, dtdData, counter, removed, nonFinalValues);
                         String cleaned = parts.toString();
                         Pair<String, String> pair = Pair.of(type == DtdType.ldml ? file : type.toString(), cleaned);

@@ -11,10 +11,9 @@ package org.unicode.cldr.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilenameFilter;
+import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,14 +44,18 @@ import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo.Count;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralType;
 import org.unicode.cldr.util.With.SimpleIterator;
-import org.unicode.cldr.util.XMLFileReader.AllHandler;
 import org.unicode.cldr.util.XMLSource.ResolvingSource;
 import org.unicode.cldr.util.XPathParts.Comments;
 import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
+import org.xml.sax.ext.DeclHandler;
+import org.xml.sax.ext.LexicalHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
 
 import com.google.common.base.Joiner;
@@ -318,24 +321,43 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
      */
     public CLDRFile loadFromInputStream(String fileName, String localeName, InputStream fis, DraftStatus minimalDraftStatus) {
         CLDRFile cldrFile = this;
-        fis = new StripUTF8BOMInputStream(fis);
-        InputStreamReader reader = new InputStreamReader(fis, Charset.forName("UTF-8"));
-        MyDeclHandler DEFAULT_DECLHANDLER = new MyDeclHandler(cldrFile, minimalDraftStatus);
-        XMLFileReader.read(fileName, reader, -1, true, DEFAULT_DECLHANDLER);
-        if (DEFAULT_DECLHANDLER.isSupplemental < 0) {
-            throw new IllegalArgumentException("root of file must be either ldml or supplementalData");
+        try {
+            fis = new StripUTF8BOMInputStream(fis);
+            MyDeclHandler DEFAULT_DECLHANDLER = new MyDeclHandler(cldrFile, minimalDraftStatus);
+
+            // now fill it.
+
+            XMLReader xmlReader = createXMLReader(true);
+            xmlReader.setContentHandler(DEFAULT_DECLHANDLER);
+            xmlReader.setErrorHandler(DEFAULT_DECLHANDLER);
+            xmlReader.setProperty("http://xml.org/sax/properties/lexical-handler", DEFAULT_DECLHANDLER);
+            xmlReader.setProperty("http://xml.org/sax/properties/declaration-handler", DEFAULT_DECLHANDLER);
+            InputSource is = new InputSource(fis);
+            is.setSystemId(fileName);
+            xmlReader.parse(is);
+            if (DEFAULT_DECLHANDLER.isSupplemental < 0) {
+                throw new IllegalArgumentException("root of file must be either ldml or supplementalData");
+            }
+            cldrFile.setNonInheriting(DEFAULT_DECLHANDLER.isSupplemental > 0);
+            if (DEFAULT_DECLHANDLER.overrideCount > 0) {
+                throw new IllegalArgumentException("Internal problems: either data file has duplicate path, or" +
+                    " CLDRFile.isDistinguishing() or CLDRFile.isOrdered() need updating: "
+                    + DEFAULT_DECLHANDLER.overrideCount
+                    + "; The exact problems are printed on the console above.");
+            }
+            if (localeName == null) {
+                cldrFile.dataSource.setLocaleID(cldrFile.getLocaleIDFromIdentity());
+            }
+            return cldrFile;
+        } catch (SAXParseException e) {
+            // System.out.println(CLDRFile.showSAX(e));
+            throw (IllegalArgumentException) new IllegalArgumentException("Can't read " + localeName + "\t"
+                + CLDRFile.showSAX(e)).initCause(e);
+        } catch (SAXException e) {
+            throw (IllegalArgumentException) new IllegalArgumentException("Can't read " + localeName).initCause(e);
+        } catch (IOException e) {
+            throw new ICUUncheckedIOException("Can't read " + localeName, e);
         }
-        cldrFile.setNonInheriting(DEFAULT_DECLHANDLER.isSupplemental > 0);
-        if (DEFAULT_DECLHANDLER.overrideCount > 0) {
-            throw new IllegalArgumentException("Internal problems: either data file has duplicate path, or" +
-                " CLDRFile.isDistinguishing() or CLDRFile.isOrdered() need updating: "
-                + DEFAULT_DECLHANDLER.overrideCount
-                + "; The exact problems are printed on the console above.");
-        }
-        if (localeName == null) {
-            cldrFile.dataSource.setLocaleID(cldrFile.getLocaleIDFromIdentity());
-        }
-        return cldrFile;
     }
 
     /**
@@ -481,7 +503,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
             if (isResolved && xpath.contains("/alias")) {
                 continue;
             }
-            XPathParts current = XPathParts.getFrozenInstance(xpath).cloneAsThawed();
+            XPathParts current = XPathParts.getInstance(xpath);
             current.writeDifference(pw, current, last, "", tempComments);
             last = current;
         }
@@ -506,12 +528,12 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
              * The difference between "filtered" (currentFiltered) and "not filtered" (current) is that
              * current uses getFullXPath(xpath), while currentFiltered uses xpath.
              */
-            XPathParts currentFiltered = XPathParts.getFrozenInstance(xpath).cloneAsThawed();
+            XPathParts currentFiltered = XPathParts.getInstance(xpath);
             if (currentFiltered.size() >= 2
                 && currentFiltered.getElement(1).equals("identity")) {
                 continue;
             }
-            XPathParts current = XPathParts.getFrozenInstance(getFullXPath(xpath)).cloneAsThawed();
+            XPathParts current = XPathParts.getInstance(getFullXPath(xpath));
             current.writeDifference(pw, currentFiltered, last, v, tempComments);
             last = current;
             wroteAtLeastOnePath = true;
@@ -862,7 +884,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
                     && !key.startsWith("//ldml/identity")) {
                     for (int i = 0;; ++i) {
                         String prop = "proposed" + (i == 0 ? "" : String.valueOf(i));
-                        XPathParts parts = XPathParts.getFrozenInstance(other.getFullXPath(key)).cloneAsThawed(); // not frozen, for addAttribut
+                        XPathParts parts = XPathParts.getInstance(other.getFullXPath(key)); // not frozen, for addAttribut
                         String fullPath = parts.addAttribute("alt", prop).toString();
                         String path = getDistinguishingXPath(fullPath, null);
                         if (dataSource.getValueAtPath(path) != null) {
@@ -1317,7 +1339,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
             return xpath;
         }
         synchronized (syncObject) {
-            XPathParts parts = XPathParts.getFrozenInstance(xpath).cloneAsThawed(); // can't be frozen since we call removeAttributes
+            XPathParts parts = XPathParts.getInstance(xpath); // can't be frozen since we call removeAttributes
             String restore;
             HashSet<String> toRemove = new HashSet<>();
             for (int i = 0; i < parts.size(); ++i) {
@@ -1491,7 +1513,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
      * }
      */
 
-    private static class MyDeclHandler implements AllHandler {
+    private static class MyDeclHandler implements DeclHandler, ContentHandler, LexicalHandler, ErrorHandler {
         private static UnicodeSet whitespace = new UnicodeSet("[:whitespace:]");
         private DraftStatus minimalDraftStatus;
         private static final boolean SHOW_START_END = false;
@@ -2723,7 +2745,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
         if (locked) throw new UnsupportedOperationException("Attempt to modify locked object");
         for (Iterator<String> it = dataSource.iterator(); it.hasNext();) {
             String path = it.next();
-            XPathParts parts = XPathParts.getFrozenInstance(dataSource.getFullPath(path)).cloneAsThawed(); // not frozen, for addAttribute
+            XPathParts parts = XPathParts.getInstance(dataSource.getFullPath(path)); // not frozen, for addAttribute
             parts.addAttribute("draft", draftStatus.toString());
             dataSource.putValueAtPath(parts.toString(), dataSource.getValueAtPath(path));
         }
@@ -2867,7 +2889,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
             //     synchronized (distinguishingMap) {
             String result = distinguishingMap.get(xpath);
             if (result == null) {
-                XPathParts distinguishingParts = XPathParts.getFrozenInstance(xpath).cloneAsThawed(); // not frozen, for removeAttributes
+                XPathParts distinguishingParts = XPathParts.getInstance(xpath); // not frozen, for removeAttributes
 
                 DtdType type = distinguishingParts.getDtdData().dtdType;
                 Set<String> toRemove = new HashSet<>();
@@ -3563,7 +3585,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
      */
     public String getCountPathWithFallback(String xpath, Count count, boolean winning) {
         String result;
-        XPathParts parts = XPathParts.getFrozenInstance(xpath).cloneAsThawed(); // not frozen, addAttribute in getCountPathWithFallback2
+        XPathParts parts = XPathParts.getInstance(xpath); // not frozen, addAttribute in getCountPathWithFallback2
 
         // In theory we should do all combinations of gender, case, count (and eventually definiteness), but for simplicity
         // we just successively try "zeroing" each one in a set order.

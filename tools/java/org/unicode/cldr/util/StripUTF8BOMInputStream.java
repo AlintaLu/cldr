@@ -10,11 +10,11 @@ package org.unicode.cldr.util;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class StripUTF8BOMInputStream extends InputStream {
+class StripUTF8BOMInputStream extends InputStream {
     InputStream base;
 
-    public StripUTF8BOMInputStream(InputStream base) {
-        this.base = InputStreamFactory.buffer(base);
+    StripUTF8BOMInputStream(InputStream base) {
+        this.base = base;
     }
 
     boolean checkForUTF8BOM = true;
