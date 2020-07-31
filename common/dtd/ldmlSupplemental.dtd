@@ -428,8 +428,7 @@ Except as contained in this notice, the name of a copyright holder shall not be 
     <!--@DEPRECATED-->
 <!ATTLIST unitPreferences draft (approved | contributed | provisional | unconfirmed) #IMPLIED >
     <!--@METADATA-->
-    <!--@DEPRECATED-->
-
+    
 <!ELEMENT unitPreference ( #PCDATA ) >
     <!--@ORDERED-->
 <!ATTLIST unitPreference regions NMTOKENS #REQUIRED >

@@ -16,7 +16,7 @@ import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.util.VersionInfo;
 
 public class SimpleXMLSource extends XMLSource {
-    private Map<String, String> xpath_value = CldrUtility.newConcurrentHashMap();
+    public Map<String, String> xpath_value = CldrUtility.newConcurrentHashMap();
     private Map<String, String> xpath_fullXPath = CldrUtility.newConcurrentHashMap();
     private Comments xpath_comments = new Comments(); // map from paths to comments.
     private Relation<String, String> VALUE_TO_PATH = null;

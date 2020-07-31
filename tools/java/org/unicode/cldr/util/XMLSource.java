@@ -7,6 +7,7 @@
 
 package org.unicode.cldr.util;
 
+import java.io.File;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,6 +26,7 @@ import java.util.WeakHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.unicode.cldr.util.CLDRFile.DraftStatus;
 import org.unicode.cldr.util.XPathParts.Comments;
 
 import com.google.common.collect.Iterators;
@@ -1746,5 +1748,67 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
             return DtdType.fromPath(path);
         }
         return null;
+    }
+
+    private DtdType dtdType;
+    public DtdType getXMLSourceDtdType() {
+        return this.dtdType;
+    }
+
+    public void setDtdType(DtdType dtdType) {
+        this.dtdType = dtdType;
+    }
+
+    /**
+     * Sets the initial comment, replacing everything that was there.
+     */
+    public XMLSource setInitialComment(String comment) {
+        if (locked) throw new UnsupportedOperationException("Attempt to modify locked object");
+        this.getXpathComments().setInitialComment(comment);
+        return this;
+    }
+
+    public XMLSource addComment(String xpath, String comment, Comments.CommentType type) {
+        if (locked) throw new UnsupportedOperationException("Attempt to modify locked object");
+        Log.logln(XMLNormalizingLoader.LOG_PROGRESS, "ADDING Comment: \t" + type + "\t" + xpath + " \t" + comment);
+        if (xpath == null || xpath.length() == 0) {
+            this.getXpathComments().setFinalComment(
+                CldrUtility.joinWithSeparation(this.getXpathComments().getFinalComment(), XPathParts.NEWLINE,
+                    comment));
+        } else {
+            xpath = CLDRFile.getDistinguishingXPath(xpath, null);
+            this.getXpathComments().addComment(type, xpath, comment);
+        }
+        return this;
+    }
+
+    public String getFullXPath(String xpath) {
+        if (xpath == null) {
+            throw new NullPointerException("Null distinguishing xpath");
+        }
+        String result = this.getFullPath(xpath);
+        return result != null ? result : xpath; // we can't add any non-distinguishing values if there is nothing there.
+    }
+
+    /**
+     * Add a new element to a CLDRFile.
+     *
+     * @param currentFullXPath
+     * @param value
+     */
+    public XMLSource add(String currentFullXPath, String value) {
+        if (locked) throw new UnsupportedOperationException("Attempt to modify locked object");
+        Log.logln(XMLNormalizingLoader.LOG_PROGRESS, "ADDING: \t" + currentFullXPath + " \t" + value + "\t" + currentFullXPath);
+        try {
+            this.putValueAtPath(currentFullXPath, value);
+        } catch (RuntimeException e) {
+            throw (IllegalArgumentException) new IllegalArgumentException("failed adding " + currentFullXPath + ",\t"
+                + value).initCause(e);
+        }
+        return this;
+    }
+
+    public static XMLSource getFrozenInstance(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
+        return XMLNormalizingLoader.getFrozenInstance(localeId, dirs, minimalDraftStatus);
     }
 }

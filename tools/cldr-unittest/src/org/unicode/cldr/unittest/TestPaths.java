@@ -236,7 +236,7 @@ public class TestPaths extends TestFmwkPlus {
 
     private Collection<String> getLocalesToTest() {
         return params.inclusion <= 5 ? Arrays.asList("root", "en", "ja", "ar", "de", "ru")
-            : params.inclusion < 10 ? testInfo.getCldrFactory().getAvailableLanguages() 
+            : params.inclusion < 10 ? testInfo.getCldrFactory().getAvailableLanguages()
                 : testInfo.getCldrFactory().getAvailable();
     }
 
