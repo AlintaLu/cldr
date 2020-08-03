@@ -1750,13 +1750,13 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         return null;
     }
 
-    private DtdType dtdType;
-    public DtdType getSimpleXMLSourceDtdType() {
-        return this.dtdType;
+    private DtdType XMLNormalizingDtdType;
+    public DtdType getXMLNormalizingDtdType() {
+        return this.XMLNormalizingDtdType;
     }
 
-    public void setDtdType(DtdType dtdType) {
-        this.dtdType = dtdType;
+    public void setXMLNormalizingDtdType(DtdType dtdType) {
+        this.XMLNormalizingDtdType = dtdType;
     }
 
     /**

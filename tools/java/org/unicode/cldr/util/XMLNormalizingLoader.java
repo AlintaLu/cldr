@@ -453,7 +453,7 @@ public class XMLNormalizingLoader{
                         dtdData.dtdType == DtdType.ldml
                             ? CLDRFile.getAttributeOrdering()
                             : dtdData.getAttributeComparator());
-                    isSupplemental = source.getDtdType() == DtdType.ldml ? 0 : 1;
+                    isSupplemental = source.getXMLNormalizingDtdType() == DtdType.ldml ? 0 : 1;
                 }
                 push(qName, attributes);
             } catch (RuntimeException e) {
@@ -499,8 +499,8 @@ public class XMLNormalizingLoader{
                 + ", publicId: " + publicId
                 + ", systemId: " + systemId);
             commentStack++;
-            source.setDtdType(DtdType.valueOf(name));
-            dtdData = DtdData.getInstance(source.getSimpleXMLSourceDtdType());
+            source.setXMLNormalizingDtdType(DtdType.valueOf(name));
+            dtdData = DtdData.getInstance(source.getXMLNormalizingDtdType());
         }
 
         @Override
