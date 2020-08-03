@@ -8,9 +8,9 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
@@ -68,17 +68,12 @@ public class XMLNormalizingLoader{
             if (minimalDraftStatus != other.minimalDraftStatus) {
                 return false;
             }
-            if (localeId == null) {
-                if (other.localeId != null) {
-                    return false;
-                }
-            } else if (!localeId.equals(other.localeId)) {
+            if (!Objects.equals(localeId, other.localeId)) {
                 return false;
             }
             return true;
         }
     }
-
     private static final int CACHE_LIMIT = 1500;
     private static LoadingCache<XMLSourceCacheKey, XMLSource> cache = CacheBuilder.newBuilder()
         .maximumSize(CACHE_LIMIT)
@@ -106,8 +101,7 @@ public class XMLNormalizingLoader{
             dirList.clear();
             dirList.add(dir);
             XMLSourceCacheKey singleKey = new XMLSourceCacheKey(key.localeId, dirList, key.minimalDraftStatus);
-            XMLSource singleSource = null;
-            singleSource = cache.getUnchecked(singleKey);
+            XMLSource singleSource =  cache.getUnchecked(singleKey);
             list.add(singleSource);
         }
 
@@ -127,58 +121,79 @@ public class XMLNormalizingLoader{
     }
 
     public static XMLSource loadXMLFile (File f, String localeId, DraftStatus minimalDraftStatus) {
-        String fullFileName = f.getAbsolutePath();
-        InputStream fis = null;
+        String fullFileName = null;
         try {
             fullFileName = f.getCanonicalPath();
-            fis = InputStreamFactory.createInputStream(f);
         } catch (IOException e) {
             StringBuilder sb = new StringBuilder("Cannot read the file '");
             sb.append(f);
             throw new ICUUncheckedIOException(sb.toString(), e);
         }
-
-        fis = new StripUTF8BOMInputStream(fis);
-        InputStreamReader reader = new InputStreamReader(fis, Charset.forName("UTF-8"));
-        XMLSource source = new SimpleXMLSource(localeId);
-        XMLNormalizingHandler XML_HANDLER = new XMLNormalizingHandler(source, minimalDraftStatus);
-        XMLFileReader.read(fullFileName, reader, -1, true, XML_HANDLER);
-        if (XML_HANDLER.isSupplemental < 0) {
-            throw new IllegalArgumentException("root of file must be either ldml or supplementalData");
+        // use try-with-resources statement
+        try (
+            InputStream fis = new StripUTF8BOMInputStream(InputStreamFactory.createInputStream(f));
+            InputStreamReader reader = new InputStreamReader(fis, Charset.forName("UTF-8"))
+        ) {
+            XMLSource source = new SimpleXMLSource(localeId);
+            XMLNormalizingHandler XML_HANDLER = new XMLNormalizingHandler(source, minimalDraftStatus);
+            XMLFileReader.read(fullFileName, reader, -1, true, XML_HANDLER);
+            if (XML_HANDLER.supplementalStatus == SupplementalStatus.NEVER_SET) {
+                throw new IllegalArgumentException("root of file must be either ldml or supplementalData");
+            }
+            source.setNonInheriting(XML_HANDLER.supplementalStatus == SupplementalStatus.NOT_SUPPLEMENTAL);
+            if (XML_HANDLER.overrideCount > 0) {
+                throw new IllegalArgumentException("Internal problems: either data file has duplicate path, or" +
+                    " CLDRFile.isDistinguishing() or CLDRFile.isOrdered() need updating: "
+                    + XML_HANDLER.overrideCount
+                    + "; The exact problems are printed on the console above.");
+            }
+            return source;
+        } catch (IOException e) {
+            StringBuilder sb = new StringBuilder("Cannot read the file '");
+            sb.append(f);
+            throw new ICUUncheckedIOException(sb.toString(), e);
         }
-        source.setNonInheriting(XML_HANDLER.isSupplemental > 0);
-        if (XML_HANDLER.overrideCount > 0) {
-            throw new IllegalArgumentException("Internal problems: either data file has duplicate path, or" +
-                " CLDRFile.isDistinguishing() or CLDRFile.isOrdered() need updating: "
-                + XML_HANDLER.overrideCount
-                + "; The exact problems are printed on the console above.");
-        }
-        return source;
     }
 
     public static boolean LOG_PROGRESS = false;
     private static final boolean DEBUG = false;
+    enum SupplementalStatus {
+        NEVER_SET, IS_SUMPPLEMENTAL, NOT_SUPPLEMENTAL
+    };
 
     private static class XMLNormalizingHandler implements AllHandler {
         private static UnicodeSet whitespace = new UnicodeSet("[:whitespace:]");
         private DraftStatus minimalDraftStatus;
         private static final boolean SHOW_START_END = false;
-        private int commentStack;
+        private int commentStackIndex;
         private boolean justPopped = false;
         private String lastChars = "";
-        private String currentFullXPath = "/";
+        private StringBuilder currentFullXPathSb = new StringBuilder("/");
         private String comment = null;
         private Map<String, String> attributeOrder;
         private DtdData dtdData;
         private XMLSource source;
         private String lastActiveLeafNode;
         private String lastLeafNode;
-        private int isSupplemental = -1;
-        private int depth = 30; // just make deep enough to handle any CLDR file.
-        private int[] orderedCounter = new int[depth];
-        private String[] orderedString = new String[depth];
+        private SupplementalStatus supplementalStatus = SupplementalStatus.NEVER_SET;
+        private int maxDepth = 30; // just make deep enough to handle any CLDR file.
+        // orderedCounter, orderedString, and level logically form a single class that allows adding elements, but never removed.
+        private int[] orderedCounter = new int[maxDepth];
+        private String[] orderedString = new String[maxDepth];
         private int level = 0;
         private int overrideCount = 0;
+        /**
+         * Types which changed from 'type' to 'choice', but not in supplemental data.
+         */
+        private static final Set<String> CHANGED_TYPES = new HashSet<>(Arrays.asList(new String[] {
+            "abbreviationFallback",
+            "default", "mapping", "measurementSystem", "preferenceOrdering" }));
+        private static final Pattern draftPattern = PatternCache.get("\\[@draft=\"([^\"]*)\"\\]");
+        private static final Pattern WHITESPACE_WITH_LF = PatternCache.get("\\s*\\u000a\\s*");
+        private Matcher draftMatcher = draftPattern.matcher("");
+        private Matcher whitespaceWithLf = WHITESPACE_WITH_LF.matcher("");
+        private static final UnicodeSet CONTROLS = new UnicodeSet("[:cc:]").freeze();
+
 
         XMLNormalizingHandler(XMLSource source, DraftStatus minimalDraftStatus) {
             this.source = source;
@@ -187,13 +202,13 @@ public class XMLNormalizingLoader{
 
         private String show(Attributes attributes) {
             if (attributes == null) return "null";
-            String result = "";
+            StringBuilder result = new StringBuilder();
             for (int i = 0; i < attributes.getLength(); ++i) {
                 String attribute = attributes.getQName(i);
                 String value = attributes.getValue(i);
-                result += "[@" + attribute + "=\"" + value + "\"]"; // TODO quote the value??
+                result.append( "[@" + attribute + "=\"" + value + "\"]"); // TODO quote the value??
             }
-            return result;
+            return result.toString();
         }
 
         private void push(String qName, Attributes attributes) {
@@ -212,9 +227,9 @@ public class XMLNormalizingLoader{
                         + show(attributes) + ", Content: " + lastChars);
             }
 
-            currentFullXPath += "/" + qName;
+            currentFullXPathSb.append("/" + qName);
             if (dtdData.isOrdered(qName)) {
-                currentFullXPath += orderingAttribute();
+                currentFullXPathSb.append(orderingAttribute());
             }
             if (attributes.getLength() > 0) {
                 attributeOrder.clear();
@@ -229,11 +244,11 @@ public class XMLNormalizingLoader{
                         putAndFixDeprecatedAttribute(qName, attribute, value);
                     }
                 }
-                for (Iterator<String> it = attributeOrder.keySet().iterator(); it.hasNext();) {
-                    String attribute = it.next();
-                    String value = attributeOrder.get(attribute);
+                for (Entry<String, String> entry : attributeOrder.entrySet()) {
+                    String attribute = entry.getKey();
+                    String value = entry.getValue();
                     String both = "[@" + attribute + "=\"" + value + "\"]"; // TODO quote the value??
-                    currentFullXPath += both;
+                    currentFullXPathSb.append(both);
                     // distinguishing = key, registry, alt, and type (except for the type attribute on the elements
                     // default and mapping).
                     // if (isDistinguishing(qName, attribute)) {
@@ -242,6 +257,7 @@ public class XMLNormalizingLoader{
                 }
             }
             if (comment != null) {
+                String currentFullXPath = currentFullXPathSb.toString();
                 if (currentFullXPath.equals("//ldml") || currentFullXPath.equals("//supplementalData")) {
                     source.setInitialComment(comment);
                 } else {
@@ -251,8 +267,9 @@ public class XMLNormalizingLoader{
             }
             justPopped = false;
             lastActiveLeafNode = null;
-            Log.logln(LOG_PROGRESS, "currentFullXPath\t" + currentFullXPath);
+            Log.logln(LOG_PROGRESS, "currentFullXPath\t" + currentFullXPathSb.toString());
         }
+
 
         private String orderingAttribute() {
             return "[@_q=\"" + (orderedCounter[level]++) + "\"]";
@@ -260,11 +277,14 @@ public class XMLNormalizingLoader{
 
         private void putAndFixDeprecatedAttribute(String element, String attribute, String value) {
             if (attribute.equals("draft")) {
-                if (value.equals("true"))
+                if (value.equals("true")) {
                     value = "approved";
-                else if (value.equals("false")) value = "unconfirmed";
+                }
+                else if (value.equals("false")) {
+                    value = "unconfirmed";
+                }
             } else if (attribute.equals("type")) {
-                if (changedTypes.contains(element) && isSupplemental < 1) { // measurementSystem for example did not
+                if (CHANGED_TYPES.contains(element) &&  supplementalStatus!= SupplementalStatus.NOT_SUPPLEMENTAL) { // measurementSystem for example did not
                     // change from 'type' to 'choice'.
                     attribute = "choice";
                 }
@@ -272,16 +292,6 @@ public class XMLNormalizingLoader{
 
             attributeOrder.put(attribute, value);
         }
-
-        /**
-         * Types which changed from 'type' to 'choice', but not in supplemental data.
-         */
-        private static Set<String> changedTypes = new HashSet<>(Arrays.asList(new String[] {
-            "abbreviationFallback",
-            "default", "mapping", "measurementSystem", "preferenceOrdering" }));
-
-        static final Pattern draftPattern = PatternCache.get("\\[@draft=\"([^\"]*)\"\\]");
-        Matcher draftMatcher = draftPattern.matcher("");
 
         /**
          * Adds a parsed XPath to the CLDRFile.
@@ -306,8 +316,8 @@ public class XMLNormalizingLoader{
         private void pop(String qName) {
             Log.logln(LOG_PROGRESS, "pop\t" + qName);
             --level;
-
-            if (lastChars.length() != 0 || justPopped == false) {
+            String currentFullXPath = currentFullXPathSb.toString();
+            if (!lastChars.isEmpty() || justPopped == false) {
                 boolean acceptItem = minimalDraftStatus == DraftStatus.unconfirmed;
                 if (!acceptItem) {
                     if (draftMatcher.reset(currentFullXPath).find()) {
@@ -353,13 +363,10 @@ public class XMLNormalizingLoader{
                 }
             }
             // currentXPath = stripAfter(currentXPath, qName);
-            currentFullXPath = stripAfter(currentFullXPath, qName);
+            currentFullXPathSb.setLength(0);
+            currentFullXPathSb.append(stripAfter(currentFullXPath, qName));
             justPopped = true;
         }
-
-        static Pattern WHITESPACE_WITH_LF = PatternCache.get("\\s*\\u000a\\s*");
-        Matcher whitespaceWithLf = WHITESPACE_WITH_LF.matcher("");
-        static final UnicodeSet CONTROLS = new UnicodeSet("[:cc:]");
 
         /**
          * Trim leading whitespace if there is a linefeed among them, then the same with trailing.
@@ -384,7 +391,7 @@ public class XMLNormalizingLoader{
                 + ";\toverriding old value <" + former + "> at path " + distinguishing +
                 "\twith\t<" + lastChars + ">" +
                 CldrUtility.LINE_SEPARATOR + "\told fullpath: " + formerPath +
-                CldrUtility.LINE_SEPARATOR + "\tnew fullpath: " + currentFullXPath);
+                CldrUtility.LINE_SEPARATOR + "\tnew fullpath: " + currentFullXPathSb.toString());
             overrideCount += 1;
         }
 
@@ -405,7 +412,7 @@ public class XMLNormalizingLoader{
             for (int i = input.length() - 1; i >= 0; --i) {
                 char ch = input.charAt(i);
                 switch (ch) {
-                case '\'':
+//                case '\'':
                 case '"':
                     if (inQuote == 0) {
                         inQuote = ch;
@@ -447,13 +454,14 @@ public class XMLNormalizingLoader{
                 + "\tqName " + qName
                 + "\tattributes " + show(attributes));
             try {
-                if (isSupplemental < 0) { // set by first element
+                if (supplementalStatus == SupplementalStatus.NEVER_SET) { // set by first element
                     attributeOrder = new TreeMap<>(
                         // HACK for ldmlIcu
                         dtdData.dtdType == DtdType.ldml
                             ? CLDRFile.getAttributeOrdering()
                             : dtdData.getAttributeComparator());
-                    isSupplemental = source.getXMLNormalizingDtdType() == DtdType.ldml ? 0 : 1;
+                    supplementalStatus = source.getXMLNormalizingDtdType() == DtdType.ldml ?
+                        SupplementalStatus.IS_SUMPPLEMENTAL : SupplementalStatus.NOT_SUPPLEMENTAL;
                 }
                 push(qName, attributes);
             } catch (RuntimeException e) {
@@ -498,7 +506,7 @@ public class XMLNormalizingLoader{
             Log.logln(LOG_PROGRESS, "startDTD name: " + name
                 + ", publicId: " + publicId
                 + ", systemId: " + systemId);
-            commentStack++;
+            commentStackIndex++;
             source.setXMLNormalizingDtdType(DtdType.valueOf(name));
             dtdData = DtdData.getInstance(source.getXMLNormalizingDtdType());
         }
@@ -506,15 +514,15 @@ public class XMLNormalizingLoader{
         @Override
         public void endDTD() throws SAXException {
             Log.logln(LOG_PROGRESS, "endDTD");
-            commentStack--;
+            commentStackIndex--;
         }
 
         @Override
         public void comment(char[] ch, int start, int length) throws SAXException {
             final String string = new String(ch, start, length);
-            Log.logln(LOG_PROGRESS, commentStack + " comment " + string);
+            Log.logln(LOG_PROGRESS, commentStackIndex + " comment " + string);
             try {
-                if (commentStack != 0) return;
+                if (commentStackIndex != 0) return;
                 String comment0 = trimWhitespaceSpecial(string).trim();
                 if (lastActiveLeafNode != null) {
                     source.addComment(lastActiveLeafNode, comment0, XPathParts.Comments.CommentType.LINE);
@@ -545,7 +553,7 @@ public class XMLNormalizingLoader{
         @Override
         public void startDocument() throws SAXException {
             Log.logln(LOG_PROGRESS, "startDocument");
-            commentStack = 0; // initialize
+            commentStackIndex = 0; // initialize
         }
 
         @Override
@@ -559,7 +567,7 @@ public class XMLNormalizingLoader{
             }
         }
 
-        // ==== The following are just for debuggin =====
+        // ==== The following are just for debugging =====
 
         @Override
         public void elementDecl(String name, String model) throws SAXException {
