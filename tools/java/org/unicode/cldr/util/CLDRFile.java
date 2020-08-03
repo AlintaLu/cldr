@@ -348,6 +348,9 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
         if (localeName == null) {
             cldrFile.dataSource.setLocaleID(cldrFile.getLocaleIDFromIdentity());
         }
+        if (InstrumentFileReading.INSTRUMENT_READING) {
+            InstrumentFileReading.SINGLETON.load(InstrumentFileReading.ReadId.loadFromInputStream, fileName);
+        }
         return cldrFile;
     }
 

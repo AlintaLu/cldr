@@ -74,7 +74,7 @@ public class XMLNormalizingLoader{
             return true;
         }
     }
-    private static final int CACHE_LIMIT = 1500;
+    private static final int CACHE_LIMIT = 1315;
     private static LoadingCache<XMLSourceCacheKey, XMLSource> cache = CacheBuilder.newBuilder()
         .maximumSize(CACHE_LIMIT)
         .softValues()
@@ -128,6 +128,9 @@ public class XMLNormalizingLoader{
             StringBuilder sb = new StringBuilder("Cannot read the file '");
             sb.append(f);
             throw new ICUUncheckedIOException(sb.toString(), e);
+        }
+        if (InstrumentFileReading.INSTRUMENT_READING) {
+            InstrumentFileReading.SINGLETON.load(InstrumentFileReading.ReadId.XMLNormalizingHandler, fullFileName + "," + localeId+ "," + minimalDraftStatus);
         }
         // use try-with-resources statement
         try (
