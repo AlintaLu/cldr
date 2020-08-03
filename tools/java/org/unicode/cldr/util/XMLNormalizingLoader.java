@@ -74,7 +74,7 @@ public class XMLNormalizingLoader{
             return true;
         }
     }
-    private static final int CACHE_LIMIT = 1315;
+    private static final int CACHE_LIMIT = 1500;
     private static LoadingCache<XMLSourceCacheKey, XMLSource> cache = CacheBuilder.newBuilder()
         .maximumSize(CACHE_LIMIT)
         .softValues()
