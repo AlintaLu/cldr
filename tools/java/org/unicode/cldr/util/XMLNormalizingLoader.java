@@ -1,6 +1,7 @@
 package org.unicode.cldr.util;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -32,7 +33,37 @@ import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.util.ICUUncheckedIOException;
 import com.ibm.icu.util.VersionInfo;
 
+/**
+ * Loading Normalizing XMLSource
+ */
 public class XMLNormalizingLoader{
+
+    /**
+     *  This size could maximum speed up TestAll by loading almost all files only once
+     *  combine with softValues eviction to satisfy memory demand
+     */
+    private static final int CACHE_LIMIT = 1500;
+
+    /**
+     * Use guava loading cache, which could automatically load or compute value associated with a key
+     */
+    private static LoadingCache<XMLSourceCacheKey, XMLSource> cache = CacheBuilder.newBuilder()
+        .maximumSize(CACHE_LIMIT)
+        .softValues()   // will garbage-collected in LRU manner in response to memory demand
+        .build(
+            new CacheLoader<XMLSourceCacheKey, XMLSource>() {
+                @Override
+                public XMLSource load(XMLSourceCacheKey key) {
+                    return makeXMLSource(key);
+                }
+            });
+
+    private static final boolean LOG_PROGRESS = false;
+    private static final boolean DEBUG = false;
+    enum SupplementalStatus {
+        NEVER_SET, IS_SUMPPLEMENTAL, NOT_SUPPLEMENTAL
+    };
+
     private static final class XMLSourceCacheKey {
         String localeId;
         List<File> dirs;
@@ -74,21 +105,18 @@ public class XMLNormalizingLoader{
             return true;
         }
     }
-    private static final int CACHE_LIMIT = 1500;
-    private static LoadingCache<XMLSourceCacheKey, XMLSource> cache = CacheBuilder.newBuilder()
-        .maximumSize(CACHE_LIMIT)
-        .softValues()
-        .build(
-            new CacheLoader<XMLSourceCacheKey, XMLSource>() {
-                @Override
-                public XMLSource load(XMLSourceCacheKey key) {
-                    return makeXMLSource(key);
-                }
-            });
 
-    public static XMLSource makeXMLSource(XMLSourceCacheKey key) {
+    public static XMLSource getFrozenInstance(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
+        XMLSourceCacheKey key = new XMLSourceCacheKey(localeId, dirs, minimalDraftStatus);
+        return cache.getUnchecked(key);
+    }
+
+    private static XMLSource makeXMLSource(XMLSourceCacheKey key) {
+        if (key.dirs == null || key.dirs.size() == 0) {
+            return null;
+        }
+
         XMLSource source = null;
-        List<XMLSource> list = new ArrayList<>();
         if (key.dirs.size() == 1) {
             File file = new File(key.dirs.get(0), key.localeId + ".xml");
             source = loadXMLFile(file, key.localeId, key.minimalDraftStatus);
@@ -96,12 +124,15 @@ public class XMLNormalizingLoader{
             return source;
         }
 
+        // if contains more than one file, make XMLSource from each file and then combine them to a combined XMLSource,
+        // so that can cache single file XMLSource as well as combined XMLSource
+        List<XMLSource> list = new ArrayList<>();
         List<File> dirList = new ArrayList<>();
         for (File dir: key.dirs) {
             dirList.clear();
             dirList.add(dir);
             XMLSourceCacheKey singleKey = new XMLSourceCacheKey(key.localeId, dirList, key.minimalDraftStatus);
-            XMLSource singleSource =  cache.getUnchecked(singleKey);
+            XMLSource singleSource = cache.getUnchecked(singleKey);
             list.add(singleSource);
         }
 
@@ -115,12 +146,7 @@ public class XMLNormalizingLoader{
         return source;
     }
 
-    public static XMLSource getFrozenInstance(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
-        XMLSourceCacheKey key = new XMLSourceCacheKey(localeId, dirs, minimalDraftStatus);
-        return cache.getUnchecked(key);
-    }
-
-    public static XMLSource loadXMLFile (File f, String localeId, DraftStatus minimalDraftStatus) {
+    public static XMLSource loadXMLFile(File f, String localeId, DraftStatus minimalDraftStatus) {
         String fullFileName = null;
         try {
             fullFileName = f.getCanonicalPath();
@@ -131,7 +157,7 @@ public class XMLNormalizingLoader{
         }
         // use try-with-resources statement
         try (
-            InputStream fis = new StripUTF8BOMInputStream(InputStreamFactory.createInputStream(f));
+            InputStream fis = new StripUTF8BOMInputStream(new FileInputStream(f));
             InputStreamReader reader = new InputStreamReader(fis, Charset.forName("UTF-8"))
         ) {
             XMLSource source = new SimpleXMLSource(localeId);
@@ -154,12 +180,6 @@ public class XMLNormalizingLoader{
             throw new ICUUncheckedIOException(sb.toString(), e);
         }
     }
-
-    public static boolean LOG_PROGRESS = false;
-    private static final boolean DEBUG = false;
-    enum SupplementalStatus {
-        NEVER_SET, IS_SUMPPLEMENTAL, NOT_SUPPLEMENTAL
-    };
 
     private static class XMLNormalizingHandler implements AllHandler {
         private static UnicodeSet whitespace = new UnicodeSet("[:whitespace:]");
@@ -194,7 +214,6 @@ public class XMLNormalizingLoader{
         private Matcher whitespaceWithLf = WHITESPACE_WITH_LF.matcher("");
         private static final UnicodeSet CONTROLS = new UnicodeSet("[:cc:]").freeze();
 
-
         XMLNormalizingHandler(XMLSource source, DraftStatus minimalDraftStatus) {
             this.source = source;
             this.minimalDraftStatus = minimalDraftStatus;
@@ -212,11 +231,9 @@ public class XMLNormalizingLoader{
         }
 
         private void push(String qName, Attributes attributes) {
-            // SHOW_ALL &&
             Log.logln(LOG_PROGRESS, "push\t" + qName + "\t" + show(attributes));
             ++level;
             if (!qName.equals(orderedString[level])) {
-                // orderedCounter[level] = 0;
                 orderedString[level] = qName;
             }
             if (lastChars.length() != 0) {
@@ -249,11 +266,6 @@ public class XMLNormalizingLoader{
                     String value = entry.getValue();
                     String both = "[@" + attribute + "=\"" + value + "\"]"; // TODO quote the value??
                     currentFullXPathSb.append(both);
-                    // distinguishing = key, registry, alt, and type (except for the type attribute on the elements
-                    // default and mapping).
-                    // if (isDistinguishing(qName, attribute)) {
-                    // currentXPath += both;
-                    // }
                 }
             }
             if (comment != null) {
@@ -362,7 +374,6 @@ public class XMLNormalizingLoader{
                     comment = null;
                 }
             }
-            // currentXPath = stripAfter(currentXPath, qName);
             currentFullXPathSb.setLength(0);
             currentFullXPathSb.append(stripAfter(currentFullXPath, qName));
             justPopped = true;
@@ -412,7 +423,7 @@ public class XMLNormalizingLoader{
             for (int i = input.length() - 1; i >= 0; --i) {
                 char ch = input.charAt(i);
                 switch (ch) {
-//                case '\'':
+                case '\'':  // treat single and double quotes in same way
                 case '"':
                     if (inQuote == 0) {
                         inQuote = ch;
@@ -478,7 +489,6 @@ public class XMLNormalizingLoader{
             try {
                 pop(qName);
             } catch (RuntimeException e) {
-                // e.printStackTrace();
                 throw e;
             }
         }
@@ -560,7 +570,9 @@ public class XMLNormalizingLoader{
         public void endDocument() throws SAXException {
             Log.logln(LOG_PROGRESS, "endDocument");
             try {
-                if (comment != null) source.addComment(null, comment, XPathParts.Comments.CommentType.LINE);
+                if (comment != null) {
+                    source.addComment(null, comment, XPathParts.Comments.CommentType.LINE);
+                }
             } catch (RuntimeException e) {
                 e.printStackTrace();
                 throw e;

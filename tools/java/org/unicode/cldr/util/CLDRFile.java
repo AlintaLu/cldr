@@ -413,6 +413,7 @@ public class CLDRFile implements Freezable<CLDRFile>, Iterable<String>, LocaleSt
         XPathParts firstFullPathParts = null;
         DtdType dtdType = DtdType.ldml; // default
         boolean suppressInheritanceMarkers = false;
+
         if (orderedSet.size() > 0) { // May not have any elements.
             firstPath = orderedSet.iterator().next();
             firstFullPath = getFullXPath(firstPath);

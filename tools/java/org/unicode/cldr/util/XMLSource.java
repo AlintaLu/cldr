@@ -1750,7 +1750,12 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         return null;
     }
 
+    /**
+     * XMLNormalizingDtdType is set in XMLNormalizingHandler loading XML process
+     */
     private DtdType XMLNormalizingDtdType;
+    private static final boolean LOG_PROGRESS = false;
+
     public DtdType getXMLNormalizingDtdType() {
         return this.XMLNormalizingDtdType;
     }
@@ -1760,17 +1765,22 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
     }
 
     /**
-     * Sets the initial comment, replacing everything that was there.
+     * Sets the initial comment, replacing everything that was there
+     * Use in XMLNormalizingHandler only
      */
     public XMLSource setInitialComment(String comment) {
         if (locked) throw new UnsupportedOperationException("Attempt to modify locked object");
+        Log.logln(LOG_PROGRESS, "SET initial Comment: \t" + comment);
         this.getXpathComments().setInitialComment(comment);
         return this;
     }
 
+    /**
+     * Use in XMLNormalizingHandler only
+     */
     public XMLSource addComment(String xpath, String comment, Comments.CommentType type) {
         if (locked) throw new UnsupportedOperationException("Attempt to modify locked object");
-        Log.logln(XMLNormalizingLoader.LOG_PROGRESS, "ADDING Comment: \t" + type + "\t" + xpath + " \t" + comment);
+        Log.logln(LOG_PROGRESS, "ADDING Comment: \t" + type + "\t" + xpath + " \t" + comment);
         if (xpath == null || xpath.length() == 0) {
             this.getXpathComments().setFinalComment(
                 CldrUtility.joinWithSeparation(this.getXpathComments().getFinalComment(), XPathParts.NEWLINE,
@@ -1782,6 +1792,9 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         return this;
     }
 
+    /**
+     * Use in XMLNormalizingHandler only
+     */
     public String getFullXPath(String xpath) {
         if (xpath == null) {
             throw new NullPointerException("Null distinguishing xpath");
@@ -1791,14 +1804,12 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
     }
 
     /**
-     * Add a new element to a CLDRFile.
-     *
-     * @param currentFullXPath
-     * @param value
+     * Add a new element to a XMLSource
+     * Use in XMLNormalizingHandler only
      */
     public XMLSource add(String currentFullXPath, String value) {
         if (locked) throw new UnsupportedOperationException("Attempt to modify locked object");
-        Log.logln(XMLNormalizingLoader.LOG_PROGRESS, "ADDING: \t" + currentFullXPath + " \t" + value + "\t" + currentFullXPath);
+        Log.logln(LOG_PROGRESS, "ADDING: \t" + currentFullXPath + " \t" + value + "\t" + currentFullXPath);
         try {
             this.putValueAtPath(currentFullXPath, value);
         } catch (RuntimeException e) {
@@ -1808,6 +1819,13 @@ public abstract class XMLSource implements Freezable<XMLSource>, Iterable<String
         return this;
     }
 
+    /**
+     * Get frozen normalizing XMLSource
+     * @param localeId
+     * @param dirs
+     * @param minimalDraftStatus
+     * @return XMLSource
+     */
     public static XMLSource getFrozenInstance(String localeId, List<File> dirs, DraftStatus minimalDraftStatus) {
         return XMLNormalizingLoader.getFrozenInstance(localeId, dirs, minimalDraftStatus);
     }
