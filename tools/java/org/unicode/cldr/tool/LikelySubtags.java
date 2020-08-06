@@ -26,8 +26,9 @@ public class LikelySubtags {
 
     private Map<String, String> toMaximized;
     private boolean favorRegion = false;
-    private SupplementalDataInfo supplementalDataInfo;
+    private static SupplementalDataInfo supplementalDataInfo;
     private static Map<String, String> currencyToLikelyTerritory;
+    private static Object GET_STATIC_SYN = new Object();
 
     /**
      * Create the likely subtags.
@@ -35,52 +36,41 @@ public class LikelySubtags {
      * @param toMaximized
      */
     public LikelySubtags(Map<String, String> toMaximized) {
-        this(SupplementalDataInfo.getInstance(), toMaximized);
+        loadStaticVariables();
+        if (this.toMaximized == null) {
+            this.toMaximized = supplementalDataInfo.getLikelySubtags();
+        } else {
+            this.toMaximized = toMaximized;
+        }
     }
 
-    /**
-     * Create the likely subtags.
-     *
-     * @param toMaximized
-     */
-    public LikelySubtags(SupplementalDataInfo supplementalDataInfo) {
-        this(supplementalDataInfo, supplementalDataInfo.getLikelySubtags());
-    }
-
-    /**
-     * Create the likely subtags.
-     *
-     * @param toMaximized
-     */
-    public LikelySubtags(SupplementalDataInfo supplementalDataInfo, Map<String, String> toMaximized) {
-        this.supplementalDataInfo = supplementalDataInfo;
-        this.toMaximized = toMaximized;
-        loadCurrencyToLikelyTerritory();
-    }
-
-    private void loadCurrencyToLikelyTerritory() {
+    private static void loadStaticVariables() {
         if (currencyToLikelyTerritory != null) {
             return;
         }
-        currencyToLikelyTerritory = new HashMap();
-        Date now = new Date();
-        Set<Row.R2<Double, String>> sorted = new TreeSet<>();
-        for (String territory : supplementalDataInfo.getTerritoriesWithPopulationData()) {
-            PopulationData pop = supplementalDataInfo.getPopulationDataForTerritory(territory);
-            double population = pop.getPopulation();
-            sorted.add(Row.of(-population, territory));
-        }
-        for (R2<Double, String> item : sorted) {
-            String territory = item.get1();
-            Set<CurrencyDateInfo> targetCurrencyInfo = supplementalDataInfo.getCurrencyDateInfo(territory);
-            if (targetCurrencyInfo == null) {
-                continue;
+        
+        synchronized(GET_STATIC_SYN) {
+            supplementalDataInfo = SupplementalDataInfo.getInstance();
+            currencyToLikelyTerritory = new HashMap<String, String>();
+            Date now = new Date();
+            Set<Row.R2<Double, String>> sorted = new TreeSet<>();
+            for (String territory : supplementalDataInfo.getTerritoriesWithPopulationData()) {
+                PopulationData pop = supplementalDataInfo.getPopulationDataForTerritory(territory);
+                double population = pop.getPopulation();
+                sorted.add(Row.of(-population, territory));
             }
-            for (CurrencyDateInfo cdi : targetCurrencyInfo) {
-                String currency = cdi.getCurrency();
-                if (!currencyToLikelyTerritory.containsKey(currency) && cdi.getStart().before(now)
-                    && cdi.getEnd().after(now) && cdi.isLegalTender()) {
-                    currencyToLikelyTerritory.put(currency, territory);
+            for (R2<Double, String> item : sorted) {
+                String territory = item.get1();
+                Set<CurrencyDateInfo> targetCurrencyInfo = supplementalDataInfo.getCurrencyDateInfo(territory);
+                if (targetCurrencyInfo == null) {
+                    continue;
+                }
+                for (CurrencyDateInfo cdi : targetCurrencyInfo) {
+                    String currency = cdi.getCurrency();
+                    if (!currencyToLikelyTerritory.containsKey(currency) && cdi.getStart().before(now)
+                        && cdi.getEnd().after(now) && cdi.isLegalTender()) {
+                        currencyToLikelyTerritory.put(currency, territory);
+                    }
                 }
             }
         }
@@ -92,7 +82,7 @@ public class LikelySubtags {
      * @param toMaximized
      */
     public LikelySubtags() {
-        this(SupplementalDataInfo.getInstance());
+        this(null);
     }
 
     public boolean isFavorRegion() {
