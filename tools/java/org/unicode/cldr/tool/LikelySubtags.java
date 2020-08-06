@@ -27,7 +27,7 @@ public class LikelySubtags {
     private Map<String, String> toMaximized;
     private boolean favorRegion = false;
     private SupplementalDataInfo supplementalDataInfo;
-    private Map<String, String> currencyToLikelyTerritory = new HashMap<>();
+    private static Map<String, String> currencyToLikelyTerritory;
 
     /**
      * Create the likely subtags.
@@ -55,7 +55,14 @@ public class LikelySubtags {
     public LikelySubtags(SupplementalDataInfo supplementalDataInfo, Map<String, String> toMaximized) {
         this.supplementalDataInfo = supplementalDataInfo;
         this.toMaximized = toMaximized;
+        loadCurrencyToLikelyTerritory();
+    }
 
+    private void loadCurrencyToLikelyTerritory() {
+        if (currencyToLikelyTerritory != null) {
+            return;
+        }
+        currencyToLikelyTerritory = new HashMap();
         Date now = new Date();
         Set<Row.R2<Double, String>> sorted = new TreeSet<>();
         for (String territory : supplementalDataInfo.getTerritoriesWithPopulationData()) {
